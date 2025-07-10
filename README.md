@@ -4,16 +4,14 @@
 
 lambda-calc is my shot at an advanced scientific calculator with symbolic expressions. It is written in GO, because it like GO :3
 
-### Features
--[x] Simple Number Calculation
--[x] CLI REPL interface
--[x] Defining Variables
-
-### Planned Features
--[ ] Simplifying equations (work in progress)
--[ ] Solving equations
--[ ] Support for reading and writing LaTeX
--[ ] More fancy math features
+### (Planned) Features
+- [x] Simple Number Calculation
+- [x] CLI REPL interface
+- [x] Defining Variables
+- [ ] Simplifying equations (work in progress)
+- [ ] Solving equations
+- [ ] Support for reading and writing LaTeX
+- [ ] More fancy math features
 
 ## Command Line Interface
 Entering an equation will result in its calculation, if the calculation is solvable.
