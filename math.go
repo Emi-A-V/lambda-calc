@@ -34,9 +34,12 @@ type Node struct {
 	variable 			string
 	lNode         *Node
 	rNode         *Node
+	associative 	[]*Node
 }
 
 var variables map[string]Node = make(map[string]Node)
+
+var variableOccurrence []string
 
 func read(cmd string) (string, error){
 	i := 0
@@ -114,17 +117,28 @@ func calc(cmd string) (float64, error) {
 	
 	// Debug
 	if config.Options["show_debug_process"] {
+		cfmt.Printf("{{Debug:}}::cyan|bold parse result: ")
 		printTree(&parsed)
 		cfmt.Println("")
 	}
 
-	simplified, err := simplify(&parsed, NORMAL)
+	atred := atr(&parsed)
+	// Debug
+	if config.Options["show_debug_process"] {
+		cfmt.Printf("{{Debug:}}::cyan|bold atr result: ")
+		printATree(atred)
+		cfmt.Println("")
+	}
+
+
+	simplified, err := simplify(atred, NORMAL)
 	if err != nil {
 		return 0, err
 	}
 	
 	// Debug 
 	if config.Options["show_debug_process"] {
+		cfmt.Printf("{{Debug:}}::cyan|bold simplified result: ")
 		printTree(simplified)
 		cfmt.Println("")
 	}
@@ -137,6 +151,61 @@ func calc(cmd string) (float64, error) {
 }
 
 
+
+func printATree(node *Node) {
+	switch node.operationType {
+	case NUMBER:
+		cfmt.Print(node.value)
+	case VARIABLE:
+		if val, ok := variables[node.variable]; ok {
+			printATree(&val)
+		} else {
+			cfmt.Print(node.variable)
+		}
+	case PLUS:
+		cfmt.Print("(")
+		for i, val := range node.associative {
+			printATree(val)
+			if i != len(node.associative) - 1 {
+				cfmt.Printf("+")
+			}
+		}
+		cfmt.Print(")")
+	case MINUS:
+		cfmt.Print("(")
+		printATree(node.lNode)
+		cfmt.Print("-")
+		printATree(node.rNode)
+		cfmt.Print(")")
+	case MULTIPLY:
+		cfmt.Print("(")
+		for i, val := range node.associative {
+			printATree(val)
+			if i != len(node.associative) - 1 {
+				cfmt.Printf("*")
+			}
+		}
+		cfmt.Print(")")
+	case DIVIDE:
+		cfmt.Print("(")
+		printATree(node.lNode)
+		cfmt.Print("/")
+		printATree(node.rNode)
+		cfmt.Print(")")
+	case POWER:
+		cfmt.Print("(")
+		printATree(node.lNode)
+		cfmt.Print("^")
+		printATree(node.rNode)
+		cfmt.Print(")")
+	case SQRT:
+		cfmt.Print("(")
+		printATree(node.lNode)
+		cfmt.Print("sq")
+		printATree(node.rNode)
+		cfmt.Print(")")
+	}
+}
 
 func printTree(node *Node) {
 	switch node.operationType {

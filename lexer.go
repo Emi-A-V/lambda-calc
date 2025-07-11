@@ -96,7 +96,7 @@ func lexer(input string) ([]Token, error) {
 								cfmt.Printf("{{Notice:}}::blue|bold found undefined variable %s.\n", string(str[j]))
 							}
 						}
-
+						variableOccurrence = append(variableOccurrence, string(str[j]))
 						tokens = append(tokens, Token{VARIABLE, 0.0, string(str[j])})
 						j += 1
 					}

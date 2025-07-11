@@ -24,15 +24,15 @@ func eval(node *Node, silent bool) (float64, error) {
 			return 0, errors.New("undefined variable")
 		}
 	case PLUS:
-		a, err := eval(node.lNode, silent)
-		if err != nil {
-			return 0, err
+		a := 0.0
+		for _, val := range node.associative {
+			b, err := eval(val, silent)
+			if err != nil {
+				return 0, err
+			}
+			a = a + b
 		}
-		b, err := eval(node.rNode, silent)
-		if err != nil {
-			return 0, err
-		}
-		return a + b, nil
+		return a, nil
 	case MINUS:
 		a, err := eval(node.lNode, silent)
 		if err != nil {
@@ -44,15 +44,15 @@ func eval(node *Node, silent bool) (float64, error) {
 		}
 		return a - b, nil
 	case MULTIPLY:
-		a, err := eval(node.lNode, silent)
-		if err != nil {
-			return 0, err
+		a := 1.0
+		for _, val := range node.associative {
+			b, err := eval(val, silent)
+			if err != nil {
+				return 0, err
+			}
+			a = a * b
 		}
-		b, err := eval(node.rNode, silent)
-		if err != nil {
-			return 0, err
-		}
-		return a * b, nil
+		return a, nil
 	case DIVIDE:
 		a, err := eval(node.lNode, silent)
 		if err != nil {

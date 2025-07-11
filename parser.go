@@ -33,7 +33,7 @@ func (p *Parser) expr() (Node, error) {
 				return Node{}, err
 			}
 			c := result
-			result = Node{PLUS, 0.0, "", &c, &a}
+			result = Node{PLUS, 0.0, "", &c, &a, nil}
 		} else if p.tokens[p.currentIndex].tokenType == MINUS {
 			p.currentIndex += 1
 			a, err := p.term()
@@ -41,7 +41,7 @@ func (p *Parser) expr() (Node, error) {
 				return Node{}, err
 			}
 			c := result
-			result = Node{MINUS, 0.0, "", &c, &a}
+			result = Node{MINUS, 0.0, "", &c, &a, nil}
 		} else {
 			break
 		}
@@ -62,7 +62,7 @@ func (p *Parser) term() (Node, error) {
 				return Node{}, err
 			}
 			c := result
-			result = Node{MULTIPLY, 0.0, "", &c, &a}
+			result = Node{MULTIPLY, 0.0, "", &c, &a, nil}
 		} else if p.tokens[p.currentIndex].tokenType == DIVIDE {
 			p.currentIndex += 1
 			a, err := p.factor()
@@ -70,11 +70,11 @@ func (p *Parser) term() (Node, error) {
 				return Node{}, err
 			}
 			c := result
-			result = Node{DIVIDE, 0.0, "", &c, &a}
+			result = Node{DIVIDE, 0.0, "", &c, &a, nil}
 
 		} else if p.tokens[p.currentIndex].tokenType == VARIABLE {
 			c := result
-			result = Node{MULTIPLY, 0.0, "", &c, &Node{VARIABLE, 0.0, p.tokens[p.currentIndex].variable, nil, nil}}
+			result = Node{MULTIPLY, 0.0, "", &c, &Node{VARIABLE, 0.0, p.tokens[p.currentIndex].variable, nil, nil, nil}, nil}
 			p.currentIndex += 1
 		} else {
 			break
@@ -97,7 +97,7 @@ func (p *Parser) factor() (Node, error) {
 				return Node{}, err
 			}
 			c := result
-			result = Node{POWER, 0.0, "", &c, &a}
+			result = Node{POWER, 0.0, "", &c, &a, nil}
 		} else {
 			break
 		}
@@ -114,12 +114,12 @@ func (p *Parser) num() (Node, error) {
 	token := p.tokens[p.currentIndex]
 	switch token.tokenType {
 	case NUMBER:
-		a := Node{NUMBER, p.tokens[p.currentIndex].value, "", nil, nil}
+		a := Node{NUMBER, p.tokens[p.currentIndex].value, "", nil, nil, nil}
 		p.currentIndex += 1
 		return a, nil
 	case VARIABLE:
 		p.currentIndex += 1
-	 	return Node{VARIABLE, 0.0, p.tokens[p.currentIndex - 1].variable, nil, nil}, nil
+	 	return Node{VARIABLE, 0.0, p.tokens[p.currentIndex - 1].variable, nil, nil, nil}, nil
 	case LPARENTHESES:
 		p.currentIndex += 1
 		a, err := p.expr()
@@ -135,7 +135,7 @@ func (p *Parser) num() (Node, error) {
 		p.currentIndex += 1
 
 		// Standard number for sqrt = 2
-		a := Node{NUMBER, 2.0, "", nil, nil}
+		a := Node{NUMBER, 2.0, "", nil, nil, nil}
 
 		if p.currentIndex >= len(p.tokens) {
 			cfmt.Println("{{Error:}}::red|bold unable to parse tokens, expecting another token")
@@ -170,21 +170,21 @@ func (p *Parser) num() (Node, error) {
 		}
 
 		p.currentIndex += 1
-		return Node{SQRT, 0.0, "", &a, &b}, nil
+		return Node{SQRT, 0.0, "", &a, &b, nil}, nil
 	case PLUS:
 		p.currentIndex += 1
 		a, err := p.factor()
 		if err != nil {
 			return Node{}, err
 		}
-		return Node{PLUS, 0.0, "", &Node{NUMBER, 0.0, "", nil, nil}, &a}, err
+		return Node{PLUS, 0.0, "", &Node{NUMBER, 0.0, "", nil, nil, nil}, &a, nil}, err
 	case MINUS:
 		p.currentIndex += 1
 		a, err := p.factor()
 		if err != nil {
 			return Node{}, err
 		}
-		return Node{MINUS, 0.0, "", &Node{NUMBER, 0.0, "", nil, nil}, &a}, err
+		return Node{MINUS, 0.0, "", &Node{NUMBER, 0.0, "", nil, nil, nil}, &a, nil}, err
 	default:
 	}
 	cfmt.Println("{{Error:}}::red|bold Unable to parse expression, unexpected token.")
