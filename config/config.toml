@@ -1,4 +1,5 @@
 [options]
+nerdfont = true
 show_debug_process = true
 
 [symbols] 

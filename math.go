@@ -50,11 +50,21 @@ func read(cmd string) (string, error){
 	}
 	switch str {
 	case "define":
+		if i >= len(cmd) - 1 {
+			cfmt.Printf("{{Error:}}::bold|red Unable to define variable, incomplete define statement.\n")
+			return "", errors.New("incomplete define statement")
+		}
+
 		lexed, err := lexer(cmd[i:])
 		if err != nil {
 			return "", err
 		}
 		
+		if len(lexed) <= 2 {
+			cfmt.Printf("{{Error:}}::bold|red Unable to define variable, incomplete define statement.\n")
+			return "", errors.New("incomplete define statement")
+		}
+
 		if lexed[0].tokenType == VARIABLE && lexed[1].tokenType == EQUAL {
 			node, err := parse(lexed[2:])			
 			if err != nil {
@@ -66,6 +76,24 @@ func read(cmd string) (string, error){
 		}
 		cfmt.Printf("{{Error:}}::bold|red Unable to define variable, incorrect assertion statement.\n")
 		return "", errors.New("incorrect assertion")
+	case "drop":
+		if i >= len(cmd) - 1 {
+			cfmt.Printf("{{Error:}}::bold|red Unable to drop variable, incomplete drop statement.\n")
+			return "", errors.New("incomplete drop statement")
+		}
+
+		lexed, err := lexer(cmd[i:])
+		if err != nil {
+			return "", err
+		}
+
+		if _, ok := variables[lexed[0].variable]; ok {
+			delete(variables, lexed[0].variable)
+			return "Variable deleted.", nil
+		} else {
+			cfmt.Printf("{{Error:}}::bold|red Unable to drop variable, the variable you are trying to drop does not exist in the current context.\n")
+			return "", errors.New("no variable to drop")
+		}
 	case "solve":
 		lexed, err := lexer(cmd)
 		if err != nil {
@@ -139,7 +167,7 @@ func calc(cmd string) (float64, error) {
 	// Debug 
 	if config.Options["show_debug_process"] {
 		cfmt.Printf("{{Debug:}}::cyan|bold simplified result: ")
-		printTree(simplified)
+		printATree(simplified)
 		cfmt.Println("")
 	}
 

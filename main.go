@@ -40,7 +40,7 @@ func main() {
 func cmdline() {
 	var (
 		historyFn = filepath.Join(os.TempDir(), ".liner_example_history")
-		names      = []string{"define", "solve", "clear", "exit"}
+		names      = []string{"define", "solve", "clear", "exit", "help", "drop"}
 	)
 
 	line := liner.NewLiner()
@@ -63,7 +63,11 @@ func cmdline() {
 	}
 
 	for {
-		cfmt.Println("{{}}::blue{{󰪚 Math}}::bgBlue|white{{}}::blue ")
+		if config.Options["nerdfont"] {
+			cfmt.Println("{{}}::blue{{󰪚 Math}}::bgBlue|white{{}}::blue ")
+		} else {
+			cfmt.Println("{{}}::blue{{Math}}::bgBlue|white{{}}::blue ")
+		}
 		if cmd, err := line.Prompt("  ╰─▶ "); err == nil {
 			line.AppendHistory(cmd)
 			switch cmd {
@@ -72,8 +76,21 @@ func cmdline() {
 				return
 			case "clear":
 				clear()
+			case "help":
+				cfmt.Printf(
+`{{lambda-calc}}::cyan|bold | CLI
+Version: 0.0.1
+
+Available commands:
+
+help 		show a help screen with useful information.
+exit 		exit the CLI.
+define x = ...	define a variable with the value of the equation.
+drop x 		undefine a variable.
+solve 		solve an equation by a variable if possible.
+
+`)
 			default:
-				// TODO: Parse commands i.e. define, solve
 				res, err := read(cmd)
 				if err == nil {	
 					cfmt.Printf("%v\n",res)

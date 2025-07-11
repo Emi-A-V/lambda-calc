@@ -20,15 +20,15 @@ var NormalRules = []RewriteRule{
 	// Basic elimination
 	simplifyAddZero,
 	simplifySubZero,
-	simplifyMultZero,
+	//simplifyMultZero,
 	simplifyMultOne,
 	simplifyDivOne,
 	simplifyZeroDiv,
 	simplifyDivSelf,
 	
 	// Power Rules
-	simplifyPowSelf,
-	simplifyAddPow,
+	// simplifyPowSelf,
+	// simplifyAddPow,
 	simplifyMultPow,
 
 	// Factoring
@@ -93,12 +93,12 @@ func simplify(node *Node, mode int) (*Node, error) {
 		}
 	}
 
-	for _, rule := range RuleSets[mode] {
+	for i, rule := range RuleSets[mode] {
 		if newNode, changed, err := rule(node); changed && err == nil {
 			
 			// Debug
 			if config.Options["show_debug_process"] {
-				cfmt.Printf("{{Notice:}}::blue|bold matched rule pattern, changed: ")
+				cfmt.Printf("{{Notice:}}::blue|bold matched rule pattern %v, changed: ", i)
 				printATree(node)
 				cfmt.Printf(" to ")
 				printATree(newNode)
@@ -173,6 +173,12 @@ func isEqual(a, b *Node) bool {
 	}
 	return true
 }
+
+// func getFactor(node *Node) (bool, *Node, *Node) {
+// 	if node.operationType == MULTIPLY {
+// 
+// 	}
+// }
 
 func clone(n *Node) *Node {
 	if n == nil {
@@ -318,6 +324,19 @@ func simplifyDivSelf(node *Node) (*Node, bool, error) {
 	return nil, false, nil
 }
 
+// Collect all terms in `PLUS` operations.
+// 2 + 4 + a + b + a = 6 + 2a + b
+func simplifyAddCollect(node *Node) (*Node, bool, error) {
+	if node.operationType == PLUS {
+		result := 0.0
+		for i, val := range node.associative {
+			if val.operationType == NUMBER {
+
+			}
+		}
+	}
+}
+
 // x * x = x^2
 // Currently Unfunctional
 func simplifyPowSelf(node *Node) (*Node, bool, error) {
@@ -349,11 +368,10 @@ func simplifyAddPow(node *Node) (*Node, bool, error) {
 }
 
 // (x^y)^z = x^(y*z)
-// Currently Unfunctional
 func simplifyMultPow(node *Node) (*Node, bool, error) {
 	if node.operationType == POWER {
 		if node.lNode.operationType == POWER {
-			op := &Node{ MULTIPLY, 0.0, "", node.lNode.rNode, node.rNode, nil}
+			op := &Node{ MULTIPLY, 0.0, "", nil, nil, []*Node{node.lNode.rNode, node.rNode}}
 			return &Node{POWER, 0.0, "", node.lNode.lNode, op, nil}, true, nil
 		}
 	}
