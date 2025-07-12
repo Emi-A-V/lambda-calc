@@ -1,4 +1,4 @@
-package lambdacalc
+package lambdaengine
 
 import (
 	"math"

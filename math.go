@@ -1,4 +1,4 @@
-package lambdacalc
+package lambdaengine
 
 import (
 	"errors"
@@ -38,16 +38,16 @@ type Node struct {
 }
 
 type Return struct {
-	str 	string
-	err 	bool
-	errId int
+	Str 	string
+	Err 	bool
+	ErrID int
 }
 
 var variables map[string]Node = make(map[string]Node)
 
 var variableOccurrence []string
 
-func input(cmd string) (Return) {
+func Input(cmd string) (Return) {
 	i := 0
 	str := ""
 

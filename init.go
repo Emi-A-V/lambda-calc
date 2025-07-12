@@ -1,8 +1,8 @@
 /*
-Package lambdacalc implements a calculation interface based on symbolic 
+Package lambdaengine implements a calculation interface based on symbolic 
 expressions and mathmatical simplification.
 */
-package lambdacalc
+package lambdaengine
 
 import (
 	"github.com/BurntSushi/toml"
@@ -18,7 +18,7 @@ type Config struct {
 var config Config
 
 // Loading Config
-func start() bool {
+func Start() bool {
 	if _, err := toml.DecodeFile("config/config.toml", &config); err != nil {
 		return false
 	}

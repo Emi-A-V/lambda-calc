@@ -1,4 +1,4 @@
-package lambdacalc
+package lambdaengine
 
 func solve(node *Node) (*Node, error) {
 	simp, err := simplify(node, SOLVE)
