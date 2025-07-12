@@ -17,10 +17,11 @@ const (
 )
 
 var NormalRules = []RewriteRule{
-	// Basic elimination
+	// -- Basic elimination
 	simplifyAddZero,
 	simplifySubZero,
-	//simplifyMultZero,
+	simplifySingleAdd,
+	simplifyMultZero,
 	simplifyMultOne,
 	simplifyDivOne,
 	simplifyZeroDiv,
@@ -36,6 +37,8 @@ var NormalRules = []RewriteRule{
 	// simplifyMultFact,
 
 	// Eval
+	simplifyAddCollect,
+	simplifyMultCollect,
 	simplifyConstantFold,
 }
 
@@ -124,22 +127,30 @@ func atr(node *Node) *Node {
 	switch node.operationType {
 	case NUMBER, VARIABLE:
 		return node
-	case MINUS, PLUS, MULTIPLY:
+	case MINUS, PLUS, MULTIPLY, DIVIDE:
 		var result []*Node
 		var walk func(n *Node)
 		var op int
-		if node.operationType == MINUS {
+		
+		switch node.operationType {
+		case MINUS:
 			op = PLUS
-		} else {
+		case DIVIDE:
+			op = MULTIPLY
+		default:
 			op = node.operationType
 		}
+
 		walk = func(n *Node) {
-			if n.operationType == op && n.operationType != MINUS {
+			if n.operationType == op && n.operationType != MINUS && n.operationType != DIVIDE {
 				walk(n.lNode)
 				walk(n.rNode)
 			} else if n.operationType == MINUS {
 				walk(n.lNode)
 				result = append(result, &Node{MINUS, 0.0, "", &Node{NUMBER, 0.0, "", nil, nil, nil}, atr(n.rNode), nil})
+			} else if n.operationType == DIVIDE {
+				walk(n.lNode)
+				result = append(result, &Node{DIVIDE, 0.0, "", &Node{NUMBER, 1.0, "", nil, nil, nil}, atr(n.rNode), nil})
 			} else {
 				result = append(result, atr(n))
 			}
@@ -174,11 +185,20 @@ func isEqual(a, b *Node) bool {
 	return true
 }
 
-// func getFactor(node *Node) (bool, *Node, *Node) {
-// 	if node.operationType == MULTIPLY {
-// 
-// 	}
-// }
+// Returns wether there is a factor of a variable, and if so than it also returns the factor and the variable.
+// -> isAFactor, factor, variable
+func getFactor(node *Node) (bool, *Node, *Node) {
+	if node.operationType == MULTIPLY {
+		if len(node.associative) == 2 {
+			if node.associative[0].operationType == NUMBER && node.associative[1].operationType == VARIABLE {
+				return true, node.associative[0], node.associative[1]
+			} else if node.associative[0].operationType == VARIABLE && node.associative[1].operationType == NUMBER {
+				return true, node.associative[1], node.associative[0]
+			}
+		}
+	}
+	return false, nil, nil
+}
 
 func clone(n *Node) *Node {
 	if n == nil {
@@ -190,6 +210,13 @@ func clone(n *Node) *Node {
 	copy.rNode = clone(n.rNode)
 	
 	return &copy
+}
+
+func removeFromNodeArray(a []*Node, i int) []*Node {
+	if len(a) - 1 == i {
+		return a[:len(a) - 1]			
+	}
+	return append(a[:i], a[i+1:]...)
 }
 
 // Frequenzy Comparision of Node arrays.
@@ -234,10 +261,7 @@ func simplifyAddZero(node *Node) (*Node, bool, error) {
 		for i, val := range node.associative {
 			if isZero(val) {
 				changed = true
-				if len(node.associative) - 1 != i {
-					node.associative[i] = node.associative[len(node.associative) - 1]
-				}
-    		node.associative = node.associative[:len(node.associative) - 1]
+				node.associative = removeFromNodeArray(node.associative, i)
 			}
 		}
 		if changed {
@@ -276,10 +300,7 @@ func simplifyMultOne(node *Node) (*Node, bool, error) {
 		for i, val := range node.associative {
 			if val.operationType == NUMBER && val.value == 0.0 {
 				changed = true
-				if len(node.associative) - 1 != i {
-					node.associative[i] = node.associative[len(node.associative) - 1]
-				}
-    		node.associative = node.associative[:len(node.associative) - 1]
+				node.associative = removeFromNodeArray(node.associative, i)
 			}
 		}
 		if changed {
@@ -300,6 +321,7 @@ func simplifyDivOne(node *Node) (*Node, bool, error) {
 }
 
 // 0 / x = 0 (x != 0)
+// LATER: Maybe add assumptions
 func simplifyZeroDiv(node *Node) (*Node, bool, error) {
 	if node.operationType == DIVIDE {
 		if isNumber(node.lNode) && node.lNode.value == 0 {
@@ -324,18 +346,169 @@ func simplifyDivSelf(node *Node) (*Node, bool, error) {
 	return nil, false, nil
 }
 
-// Collect all terms in `PLUS` operations.
-// 2 + 4 + a + b + a = 6 + 2a + b
-func simplifyAddCollect(node *Node) (*Node, bool, error) {
-	if node.operationType == PLUS {
-		result := 0.0
-		for i, val := range node.associative {
-			if val.operationType == NUMBER {
-
-			}
+// (+(a*b)) = (a*b)
+// After collection of addition, clean up
+func simplifySingleAdd(node *Node) (*Node, bool, error) {
+	if node.operationType == PLUS || node.operationType == MULTIPLY {
+		if len(node.associative) == 1 {
+			return node.associative[0], true, nil
 		}
 	}
+	return nil, false, nil
 }
+
+// Collect all terms in `PLUS` operations.
+// 2 + 4 + a + b + a = 6 + 2a + b
+func simplifyAddCollect(n *Node) (*Node, bool, error) {
+	if n.operationType == PLUS {
+		node :=	clone(n)
+		changed := false
+		
+		nNumOp := 0
+		nVarOp := 0
+		
+		result := 0.0
+		varMap := make(map[string]float64)
+
+		for i := 0; i < len(node.associative); i++ {
+			val := node.associative[i]
+			switch val.operationType {
+			case NUMBER:
+				result += val.value
+				node.associative = removeFromNodeArray(node.associative, i)
+				nNumOp++
+				i--
+			case VARIABLE:
+				varMap[val.variable]++
+				node.associative = removeFromNodeArray(node.associative, i)
+				if varMap[val.variable] >= 2 {
+					nVarOp ++
+				}
+				i--
+			case MINUS:
+				if val.rNode.operationType == VARIABLE {
+					varMap[val.rNode.variable]--
+					node.associative = removeFromNodeArray(node.associative, i)
+					if varMap[val.variable] >= 2 {
+						nVarOp ++
+					}
+					i--
+				}
+			case MULTIPLY:
+				if ok, factor, variable := getFactor(val); ok {
+					varMap[variable.variable] += factor.value
+					node.associative = removeFromNodeArray(node.associative, i)
+					if varMap[val.variable] >= 2 {
+						nVarOp ++
+					}
+					i--
+				}
+			}
+		}
+		if result != 0.0 {
+			node.associative = append(node.associative, &Node{NUMBER, result, "", nil, nil, nil})
+			changed = true
+		}
+		if len(varMap) >= 1 {
+			for key, fact := range varMap {
+				if fact == 1 {
+					node.associative = append(node.associative, &Node{VARIABLE, 0.0, key, nil, nil, nil})
+					changed = true
+				} else {
+					mult := &Node{MULTIPLY, 0.0, "", nil, nil, []*Node{ 
+						{VARIABLE, 0.0, key, nil, nil, nil},
+						{NUMBER, float64(fact), "", nil, nil, nil},
+					}}
+					node.associative = append(node.associative, mult)
+					changed = true
+				}
+			}
+		}
+		if changed && (nVarOp >= 2 || nNumOp >= 2) {
+			return node, true, nil
+		}
+	}
+	return nil, false, nil
+}
+
+// Collect all terms in `PLUS` operations.
+// 2 + 4 + a + b + a = 6 + 2a + b
+func simplifyMultCollect(n *Node) (*Node, bool, error) {
+	if n.operationType == MULTIPLY {
+		node :=	clone(n)
+		changed := false
+		
+		nNumOp := 0
+		nVarOp := 0
+		
+		result := 1.0
+		varMap := make(map[string]int)
+
+		for i := 0; i < len(node.associative); i++ {
+			val := node.associative[i]
+			switch val.operationType {
+			case NUMBER:
+				result *= val.value
+				node.associative = removeFromNodeArray(node.associative, i)
+				nNumOp++
+				i--
+			case VARIABLE:
+				varMap[val.variable]++
+				node.associative = removeFromNodeArray(node.associative, i)
+				if varMap[val.variable] >= 2 {
+					nVarOp ++
+				}
+				i--
+			case MINUS:
+				if val.rNode.operationType == VARIABLE {
+					varMap[val.rNode.variable]++
+					result *= -1.0
+					node.associative = removeFromNodeArray(node.associative, i)
+					if varMap[val.variable] >= 2 {
+						nVarOp ++
+					}
+					i--
+				}
+			case DIVIDE:
+				if val.rNode.operationType == VARIABLE {
+					varMap[val.rNode.variable]--
+					node.associative = removeFromNodeArray(node.associative, i)
+					if varMap[val.variable] >= 2 {
+						nVarOp ++
+					}
+					i--
+				}
+			}
+		}
+		if result != 1.0 {
+			node.associative = append(node.associative, &Node{NUMBER, result, "", nil, nil, nil})
+			changed = true
+			// cfmt.Printf("{{Notice:}}::blue|bold Combined numbers in addition to %v\n", result)
+		}
+		if len(varMap) >= 1 {
+			for key, fact := range varMap {
+				if fact == 1 {
+					node.associative = append(node.associative, &Node{VARIABLE, 0.0, key, nil, nil, nil})
+					changed = true
+				} else if fact == -1 { 
+					// TODO: ^^^^^ Check if this is correct... Maybe it needs to go to the Power form?
+					newNode := &Node{DIVIDE, 0.0, "", &Node{NUMBER, 1.0, "", nil, nil, nil}, &Node{VARIABLE, 0.0, key, nil, nil, nil}, nil}
+					node.associative = append(node.associative, newNode)
+					changed = true
+				} else {
+					mult := &Node{POWER, 0.0, "", &Node{VARIABLE, 0.0, key, nil, nil, nil}, &Node{NUMBER, float64(fact), "", nil, nil, nil}, nil}
+					node.associative = append(node.associative, mult)
+					changed = true
+				}
+			}
+		}
+		if changed && (nVarOp >= 2 || nNumOp >= 2) {
+			return node, true, nil
+		}
+	}
+	return nil, false, nil
+}
+
 
 // x * x = x^2
 // Currently Unfunctional

@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"slices"
 	"strconv"
 	"unicode"
 
@@ -44,6 +45,9 @@ var variableOccurrence []string
 func read(cmd string) (string, error){
 	i := 0
 	str := ""
+
+	variableOccurrence := []string{}
+
 	for i < len(cmd) && unicode.IsLetter(rune(cmd[i])){
 		str += string(cmd[i])
 		i += 1
@@ -66,11 +70,20 @@ func read(cmd string) (string, error){
 		}
 
 		if lexed[0].tokenType == VARIABLE && lexed[1].tokenType == EQUAL {
+			
+			if len(variableOccurrence) >= 2 {
+				if slices.Contains(variableOccurrence[1:], variableOccurrence[0]) {
+					cfmt.Printf("%v", variableOccurrence[1:])
+					cfmt.Printf("{{Error:}}::bold|red Unable to define variable, recursive variable assignment.\n")
+					return "", errors.New("variable recursion")
+				}
+			}
+
 			node, err := parse(lexed[2:])			
 			if err != nil {
 				return "", err
 			}
-
+			
 			variables[lexed[0].variable] = node
 			return "Variable defined.", nil
 		}
