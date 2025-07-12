@@ -1,7 +1,6 @@
-package main
+package lambdacalc
 
 import (
-	"github.com/i582/cfmt/cmd/cfmt"
 	"unicode"
 	"errors"
 	"strconv"
@@ -51,7 +50,6 @@ func lexer(input string) ([]Token, error) {
 				str := ""
 				for i < len(input) && (unicode.IsNumber(rune(input[i])) || rune(input[i]) == []rune(config.Symbols["decimal_split"])[0]) {
 					if dot && rune(input[i]) == []rune(config.Symbols["decimal_split"])[0] {
-						cfmt.Printf("{{Error:}}::red|bold Unable to parse number at %v, reading multiple decimal splits.\n", i)
 						return nil, errors.New("multiple decimal splits")
 					} else if rune(input[i]) == []rune(config.Symbols["decimal_split"])[0] {
 						dot = true
@@ -63,7 +61,6 @@ func lexer(input string) ([]Token, error) {
 				}
 				num, err := strconv.ParseFloat(str, 64)
 				if err != nil {
-					cfmt.Printf("{{Error:}}::red|bold Unable to parse number, character-conversion faild.\n")
 					return nil, errors.New("number parsing")
 				}
 				tokens = append(tokens, Token{NUMBER, num, ""})
@@ -87,24 +84,10 @@ func lexer(input string) ([]Token, error) {
 				} else {
 					j := 0
 					for j < len(str) {
-						
-						// Debug
-						if config.Options["show_debug_process"] {
-							if _, ok := variables[string(str[j])]; ok {
-								cfmt.Printf("{{Notice:}}::blue|bold found defined variable %s with value.\n", string(str[j]))
-							} else {
-								cfmt.Printf("{{Notice:}}::blue|bold found undefined variable %s.\n", string(str[j]))
-							}
-						}
 						variableOccurrence = append(variableOccurrence, string(str[j]))
 						tokens = append(tokens, Token{VARIABLE, 0.0, string(str[j])})
 						j += 1
 					}
-					// if i >= len(input) {
-					// 	i -= 1
-					// }
-					// cfmt.Printf("{{Error:}}::red|bold Unable to parse symbole at %v, reading unrecognised character: '%s'.\n", i, string(input[i]))
-					// return nil, errors.New("unrecognised character")
 				}
 			}
 		}

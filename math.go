@@ -1,12 +1,11 @@
-package main
+package lambdacalc
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strconv"
 	"unicode"
-
-	"github.com/i582/cfmt/cmd/cfmt"
 )
 
 const (
@@ -38,11 +37,17 @@ type Node struct {
 	associative 	[]*Node
 }
 
+type Return struct {
+	str 	string
+	err 	bool
+	errId int
+}
+
 var variables map[string]Node = make(map[string]Node)
 
 var variableOccurrence []string
 
-func read(cmd string) (string, error){
+func input(cmd string) (Return) {
 	i := 0
 	str := ""
 
@@ -55,94 +60,87 @@ func read(cmd string) (string, error){
 	switch str {
 	case "define":
 		if i >= len(cmd) - 1 {
-			cfmt.Printf("{{Error:}}::bold|red Unable to define variable, incomplete define statement.\n")
-			return "", errors.New("incomplete define statement")
+			return mathErrors[errors.New("incomplete define statement")]
 		}
 
 		lexed, err := lexer(cmd[i:])
 		if err != nil {
-			return "", err
+			return mathErrors[err]
 		}
 		
 		if len(lexed) <= 2 {
-			cfmt.Printf("{{Error:}}::bold|red Unable to define variable, incomplete define statement.\n")
-			return "", errors.New("incomplete define statement")
+			return mathErrors[errors.New("incomplete define statement")]
 		}
 
 		if lexed[0].tokenType == VARIABLE && lexed[1].tokenType == EQUAL {
 			
 			if len(variableOccurrence) >= 2 {
 				if slices.Contains(variableOccurrence[1:], variableOccurrence[0]) {
-					cfmt.Printf("%v", variableOccurrence[1:])
-					cfmt.Printf("{{Error:}}::bold|red Unable to define variable, recursive variable assignment.\n")
-					return "", errors.New("variable recursion")
+					return  mathErrors[errors.New("variable recursion")]
 				}
 			}
 
 			node, err := parse(lexed[2:])			
 			if err != nil {
-				return "", err
+				return mathErrors[err]
 			}
 			
 			variables[lexed[0].variable] = node
-			return "Variable defined.", nil
+			return Return{"Variable defined.", false, 201}
 		}
-		cfmt.Printf("{{Error:}}::bold|red Unable to define variable, incorrect assertion statement.\n")
-		return "", errors.New("incorrect assertion")
+		return mathErrors[errors.New("incorrect assertion")]
 	case "drop":
 		if i >= len(cmd) - 1 {
-			cfmt.Printf("{{Error:}}::bold|red Unable to drop variable, incomplete drop statement.\n")
-			return "", errors.New("incomplete drop statement")
+			return mathErrors[errors.New("incomplete drop statement")]
 		}
 
 		lexed, err := lexer(cmd[i:])
 		if err != nil {
-			return "", err
+			return mathErrors[err]
 		}
 
 		if _, ok := variables[lexed[0].variable]; ok {
 			delete(variables, lexed[0].variable)
-			return "Variable deleted.", nil
+			return Return{"Variable deleted.", false, 202} 
 		} else {
-			cfmt.Printf("{{Error:}}::bold|red Unable to drop variable, the variable you are trying to drop does not exist in the current context.\n")
-			return "", errors.New("no variable to drop")
+			return mathErrors[errors.New("no variable to drop")]
 		}
 	case "solve":
 		lexed, err := lexer(cmd)
 		if err != nil {
-			return "", err
+			return mathErrors[err]
 		}
 		parsed, err := parse(lexed)
 		if err != nil {
-			return "", err
+			return mathErrors[err]
 		}
 		
 		solve(&parsed)
 
-		return "", nil
+		return Return{"", false, 200}
 	case "list":
 		if len(variables) <= 0 {
-			cfmt.Println("No variables defined.")
-			return "", nil
+			return Return{"", false, 200}
 		}
+
+		str := ""
 		// lists all currently stored variables
 		for key, val := range variables {
-			cfmt.Println("")
-			cfmt.Printf("'%s' : ", key)
-			printTree(&val)
+			str += fmt.Sprintf("'%s' : ", key)
+			str += printATree(&val)
+			str += "\n"
 		}
-		cfmt.Println("")
-		return "", nil
+		return Return{str, false, 203}
 	default:
 		num, err := calc(cmd)
-		cfmt.Println("")
 		numStr := ""
 		if err != nil {
 			numStr = ""
+			return mathErrors[err]
 		} else {
 			numStr = strconv.FormatFloat(num, 'f', -1, 64)
+			return Return{numStr, false, 200}
 		}
-		return numStr, err
 	}
 }
 
@@ -155,35 +153,14 @@ func calc(cmd string) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	
-	// Debug
-	if config.Options["show_debug_process"] {
-		cfmt.Printf("{{Debug:}}::cyan|bold parse result: ")
-		printTree(&parsed)
-		cfmt.Println("")
-	}
 
 	atred := atr(&parsed)
-	// Debug
-	if config.Options["show_debug_process"] {
-		cfmt.Printf("{{Debug:}}::cyan|bold atr result: ")
-		printATree(atred)
-		cfmt.Println("")
-	}
-
-
+	
 	simplified, err := simplify(atred, NORMAL)
 	if err != nil {
 		return 0, err
 	}
 	
-	// Debug 
-	if config.Options["show_debug_process"] {
-		cfmt.Printf("{{Debug:}}::cyan|bold simplified result: ")
-		printATree(simplified)
-		cfmt.Println("")
-	}
-
 	result, err := eval(simplified, false)
 	if err != nil {
 		return 0, err
@@ -193,107 +170,111 @@ func calc(cmd string) (float64, error) {
 
 
 
-func printATree(node *Node) {
+func printATree(node *Node) string {
+	str := ""
 	switch node.operationType {
 	case NUMBER:
-		cfmt.Print(node.value)
+		str += strconv.FormatFloat(node.value, 'f', -1, 64)
 	case VARIABLE:
 		if val, ok := variables[node.variable]; ok {
-			printATree(&val)
+			str += printATree(&val)
 		} else {
-			cfmt.Print(node.variable)
+			str += node.variable
 		}
 	case PLUS:
-		cfmt.Print("(")
+		str += "("
 		for i, val := range node.associative {
-			printATree(val)
+			str += printATree(val)
 			if i != len(node.associative) - 1 {
-				cfmt.Printf("+")
+				str += "+"
 			}
 		}
-		cfmt.Print(")")
+		str += ")"
 	case MINUS:
-		cfmt.Print("(")
-		printATree(node.lNode)
-		cfmt.Print("-")
-		printATree(node.rNode)
-		cfmt.Print(")")
+		str += "("
+		str += printATree(node.lNode)
+		str += "-"
+		str += printATree(node.rNode)
+		str += ")"
 	case MULTIPLY:
-		cfmt.Print("(")
+		str += "("
 		for i, val := range node.associative {
-			printATree(val)
+			str += printATree(val)
 			if i != len(node.associative) - 1 {
-				cfmt.Printf("*")
+				str += "*"
 			}
 		}
-		cfmt.Print(")")
+		str += ")"
 	case DIVIDE:
-		cfmt.Print("(")
-		printATree(node.lNode)
-		cfmt.Print("/")
-		printATree(node.rNode)
-		cfmt.Print(")")
+		str += "("
+		str += printATree(node.lNode)
+		str += "/"
+		str += printATree(node.rNode)
+		str += ")"
 	case POWER:
-		cfmt.Print("(")
-		printATree(node.lNode)
-		cfmt.Print("^")
-		printATree(node.rNode)
-		cfmt.Print(")")
+		str += "("
+		str += printATree(node.lNode)
+		str += "^"
+		str += printATree(node.rNode)
+		str += ")"
 	case SQRT:
-		cfmt.Print("(")
-		printATree(node.lNode)
-		cfmt.Print("sq")
-		printATree(node.rNode)
-		cfmt.Print(")")
+		str += "("
+		str += printATree(node.lNode)
+		str += "sq"
+		str += printATree(node.rNode)
+		str += ")"
 	}
+	return str
 }
 
-func printTree(node *Node) {
+func printTree(node *Node) string {
+	str := ""
 	switch node.operationType {
 	case NUMBER:
-		cfmt.Print(node.value)
+		str += strconv.FormatFloat(node.value, 'f', -1, 64)
 	case VARIABLE:
 		if val, ok := variables[node.variable]; ok {
-			printTree(&val)
+			str += printTree(&val)
 		} else {
-			cfmt.Print(node.variable)
+			str += node.variable
 		}
 	case PLUS:
-		cfmt.Print("(")
-		printTree(node.lNode)
-		cfmt.Print("+")
-		printTree(node.rNode)
-		cfmt.Print(")")
+		str += "("
+		str += printTree(node.lNode)
+		str += "+"
+		str += printTree(node.rNode)
+		str += ")"
 	case MINUS:
-		cfmt.Print("(")
-		printTree(node.lNode)
-		cfmt.Print("-")
-		printTree(node.rNode)
-		cfmt.Print(")")
+		str += "("
+		str += printTree(node.lNode)
+		str += "-"
+		str += printTree(node.rNode)
+		str += ")"
 	case MULTIPLY:
-		cfmt.Print("(")
-		printTree(node.lNode)
-		cfmt.Print("*")
-		printTree(node.rNode)
-		cfmt.Print(")")
+		str += "("
+		str += printTree(node.lNode)
+		str += "*"
+		str += printTree(node.rNode)
+		str += ")"
 	case DIVIDE:
-		cfmt.Print("(")
-		printTree(node.lNode)
-		cfmt.Print("/")
-		printTree(node.rNode)
-		cfmt.Print(")")
+		str += "("
+		str += printTree(node.lNode)
+		str += "/"
+		str += printTree(node.rNode)
+		str += ")"
 	case POWER:
-		cfmt.Print("(")
-		printTree(node.lNode)
-		cfmt.Print("^")
-		printTree(node.rNode)
-		cfmt.Print(")")
+		str += "("
+		str += printTree(node.lNode)
+		str += "^"
+		str += printTree(node.rNode)
+		str += ")"
 	case SQRT:
-		cfmt.Print("(")
-		printTree(node.lNode)
-		cfmt.Print("sq")
-		printTree(node.rNode)
-		cfmt.Print(")")
+		str += "("
+		str += printTree(node.lNode)
+		str += "sq"
+		str += printTree(node.rNode)
+		str += ")"
 	}
+	return str
 }
 

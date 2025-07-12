@@ -1,4 +1,4 @@
-package main
+package lambdacalc
 
 func solve(node *Node) (*Node, error) {
 	simp, err := simplify(node, SOLVE)

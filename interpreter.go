@@ -1,7 +1,6 @@
-package main
+package lambdacalc
 
 import (
-	"github.com/i582/cfmt/cmd/cfmt"
 	"math"
 	"errors"
 )
@@ -20,7 +19,6 @@ func eval(node *Node, silent bool) (float64, error) {
 			}
 			return a, nil
 		} else {
-			cfmt.Printf("{{Error:}}::red|bold Unable to calculate output, undefined variable '%s'.\n", node.variable)
 			return 0, errors.New("undefined variable")
 		}
 	case PLUS:
@@ -63,10 +61,7 @@ func eval(node *Node, silent bool) (float64, error) {
 			return 0, err
 		}
 		if b == 0.0 {
-			if !silent {
-				cfmt.Printf("{{Error:}}::red|bold Unable to calculate output, devision by zero.\n")
-			}
-			return 0, errors.New("divide by 0")
+			return 0, errors.New("division by zero")
 		}
 		return a / b, nil
 	case POWER:
@@ -89,16 +84,10 @@ func eval(node *Node, silent bool) (float64, error) {
 			return 0, err
 		}
 		if b <= 0 {
-			if !silent {
-				cfmt.Printf("{{Error:}}::red|bold Unable to calculate output, result has no real solution.\n")
-			}
 			return 0, errors.New("negative sqrt")
 		}
 		return math.Pow(b, (1 / a)), nil
 	default:
-		if !silent {
-			cfmt.Printf("{{Error:}}::red|bold Unable to calculate output, unexpected symbole.\n")
-		}
 		return 0, errors.New("unexpected error")
 	}
 }

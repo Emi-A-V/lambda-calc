@@ -1,7 +1,6 @@
-package main
+package lambdacalc
 
 import (
-	"github.com/i582/cfmt/cmd/cfmt"
 	"errors"
 )
 
@@ -107,7 +106,6 @@ func (p *Parser) factor() (Node, error) {
 
 func (p *Parser) num() (Node, error) {
 	if p.currentIndex >= len(p.tokens) {
-		cfmt.Println("{{Error:}}::red|bold unable to parse tokens, expecting another token.")
 		return Node{}, errors.New("missing token")
 	}
 
@@ -126,7 +124,6 @@ func (p *Parser) num() (Node, error) {
 		if err != nil {
 			return Node{}, err
 		} else if p.currentIndex >= len(p.tokens) || p.tokens[p.currentIndex].tokenType != RPARENTHESES {
-			cfmt.Println("{{Error:}}::red|bold unable to parse tokens, missing closing parentheses")
 			return Node{}, errors.New("unclosed parentheses")
 		}
 		p.currentIndex += 1
@@ -138,7 +135,6 @@ func (p *Parser) num() (Node, error) {
 		a := Node{NUMBER, 2.0, "", nil, nil, nil}
 
 		if p.currentIndex >= len(p.tokens) {
-			cfmt.Println("{{Error:}}::red|bold unable to parse tokens, expecting another token")
 			return Node{}, errors.New("missing token")
 		} else if p.tokens[p.currentIndex].tokenType == POWER {
 			p.currentIndex += 1
@@ -152,7 +148,6 @@ func (p *Parser) num() (Node, error) {
 
 		// Check for parentheses
 		if p.currentIndex >= len(p.tokens) || p.tokens[p.currentIndex].tokenType != LPARENTHESES {
-			cfmt.Println("{{Error:}}::red|bold unable to parse tokens, missing opening parentheses")
 			return Node{}, errors.New("unopened parentheses")
 		}
 		p.currentIndex += 1
@@ -165,7 +160,6 @@ func (p *Parser) num() (Node, error) {
 
 		// Check for parentheses
 		if p.currentIndex >= len(p.tokens) || p.tokens[p.currentIndex].tokenType != RPARENTHESES {
-			cfmt.Println("{{Error:}}::red|bold unable to parse tokens, missing closing parentheses")
 			return Node{}, errors.New("unclosed parentheses")
 		}
 
@@ -187,7 +181,6 @@ func (p *Parser) num() (Node, error) {
 		return Node{MINUS, 0.0, "", &Node{NUMBER, 0.0, "", nil, nil, nil}, &a, nil}, err
 	default:
 	}
-	cfmt.Println("{{Error:}}::red|bold Unable to parse expression, unexpected token.")
 	return Node{}, errors.New("unexpected token")
 }
 

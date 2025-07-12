@@ -1,10 +1,8 @@
-package main
+package lambdacalc
 
 import (
 	"errors"
 	"slices"
-
-	"github.com/i582/cfmt/cmd/cfmt"
 )
 
 
@@ -96,18 +94,8 @@ func simplify(node *Node, mode int) (*Node, error) {
 		}
 	}
 
-	for i, rule := range RuleSets[mode] {
+	for _, rule := range RuleSets[mode] {
 		if newNode, changed, err := rule(node); changed && err == nil {
-			
-			// Debug
-			if config.Options["show_debug_process"] {
-				cfmt.Printf("{{Notice:}}::blue|bold matched rule pattern %v, changed: ", i)
-				printATree(node)
-				cfmt.Printf(" to ")
-				printATree(newNode)
-				cfmt.Println("")
-			} 
-			
 			return simplify(newNode, mode)
 		} else if err != nil {
 			return nil, err
@@ -328,8 +316,7 @@ func simplifyZeroDiv(node *Node) (*Node, bool, error) {
 			if val, err := eval(node.rNode, true); err == nil && val != 0 {
 				return &Node{NUMBER, 0.0, "", nil, nil, nil}, true, nil
 			} else if val == 0 {
-				cfmt.Printf("{{Error:}}::red|bold Unable to simplify calculation, possible devision by zero.\n")
-				return nil, false, errors.New("divide by 0")
+				return nil, false, errors.New("simplify division by zero")
 			}
 		}
 	}
@@ -483,7 +470,6 @@ func simplifyMultCollect(n *Node) (*Node, bool, error) {
 		if result != 1.0 {
 			node.associative = append(node.associative, &Node{NUMBER, result, "", nil, nil, nil})
 			changed = true
-			// cfmt.Printf("{{Notice:}}::blue|bold Combined numbers in addition to %v\n", result)
 		}
 		if len(varMap) >= 1 {
 			for key, fact := range varMap {

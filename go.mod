@@ -1,4 +1,4 @@
-module math/parser
+module lambdacalc/cli
 
 go 1.22.2
 
