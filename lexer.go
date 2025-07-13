@@ -1,9 +1,9 @@
 package lambdaengine
 
 import (
-	"unicode"
 	"errors"
 	"strconv"
+	"unicode"
 )
 
 func lexer(input string) ([]Token, error) {

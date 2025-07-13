@@ -133,39 +133,36 @@ func Input(cmd string) (Return) {
 		return Return{str, false, 203}
 	default:
 		num, err := calc(cmd)
-		numStr := ""
 		if err != nil {
-			numStr = ""
 			return mathErrors[err]
 		} else {
-			numStr = strconv.FormatFloat(num, 'f', -1, 64)
-			return Return{numStr, false, 200}
+			return Return{num, false, 200}
 		}
 	}
 }
 
-func calc(cmd string) (float64, error) {
+func calc(cmd string) (string, error) {
 	lexed, err := lexer(cmd)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	parsed, err := parse(lexed)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 
 	atred := atr(&parsed)
 	
 	simplified, err := simplify(atred, NORMAL)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	
-	result, err := eval(simplified, false)
-	if err != nil {
-		return 0, err
-	}
-	return result, nil
+	// result, err := eval(simplified, false)
+	// if err != nil {
+	// 	return 0, err
+	// }
+	return printATree(simplified), nil
 }
 
 
