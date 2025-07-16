@@ -17,29 +17,31 @@ const (
 )
 
 var NormalRules = []RewriteRule{
-	// -- Basic elimination
-	simplifyAddZero,
-	simplifySubZero,
-	simplifySingleAdd,
-	simplifyMultZero,
-	simplifyMultOne,
-	simplifyDivOne,
-	simplifyZeroDiv,
-	simplifyDivSelf,
+	// Basic elimination
+	simplifyAddZero,		// 0
+	simplifySubZero,		// 1
+	simplifySingleAdd,	// 2
+	simplifyMultZero,		// 3
+	simplifyMultOne,		// 4
+	simplifyDivOne,		 	// 5
+	simplifyZeroDiv,		// 6
+	simplifyDivSelf,		// 7
 	
 	// Power Rules
 	// simplifyPowSelf,
 	// simplifyAddPow,
-	simplifyMultPow,
+	simplifyPowZero,		// 8
+	simplifyMultPow,		// 9
 
 	// Factoring
 	// simplifyDivFact,
 	// simplifyMultFact,
 
 	// Eval
-	simplifyAddCollect,
-	simplifyMultCollect,
-	simplifyConstantFold,
+	simplifyAddCollect,		// 10
+	simplifyMultCollect,	// 11
+	simplifyDefact,				// 12
+	simplifyConstantFold,	// 13
 }
 
 var SolveRules = []RewriteRule{
@@ -76,10 +78,20 @@ func simplify(node *Node, mode int) (*Node, error) {
 	var err error
 	switch node.operationType {
 	case MULTIPLY, PLUS:
-		for i, val := range node.associative {
-			node.associative[i], err = simplify(val, mode)
+		for i := 0; i < len(node.associative); i++ {
+			val := node.associative[i]
+			simp := &Node{}
+			simp, err = simplify(val, mode)
 			if err != nil {
 				return nil, err
+			}
+			if simp.operationType == node.operationType {
+
+				node.associative = removeFromNodeArray(node.associative, i)
+				i --
+				node.associative = append(node.associative, simp.associative...)
+			} else {
+				node.associative[i] = simp
 			}
 		}
 	case VARIABLE, NUMBER:
@@ -145,12 +157,12 @@ func atr(node *Node) *Node {
 			if n.operationType == op && n.operationType != MINUS && n.operationType != DIVIDE {
 				walk(n.lNode)
 				walk(n.rNode)
-			} else if n.operationType == MINUS {
+			} else if op == PLUS && n.operationType == MINUS {
 				walk(n.lNode)
 				result = append(result, &Node{MINUS, 0.0, "", &Node{NUMBER, 0.0, "", nil, nil, nil}, atr(n.rNode), nil})
-			} else if n.operationType == DIVIDE {
+			} else if op == MULTIPLY && n.operationType == DIVIDE {
 				walk(n.lNode)
-				result = append(result, &Node{DIVIDE, 0.0, "", &Node{NUMBER, 1.0, "", nil, nil, nil}, atr(n.rNode), nil})
+				result = append(result, &Node{POWER, 0.0, "", atr(n.rNode), &Node{NUMBER, -1.0, "", nil, nil, nil}, nil})
 			} else {
 				result = append(result, atr(n))
 			}
@@ -213,10 +225,16 @@ func clone(n *Node) *Node {
 }
 
 func removeFromNodeArray(a []*Node, i int) []*Node {
-	if len(a) - 1 == i {
-		return a[:len(a) - 1]			
+	appended := []*Node{}
+
+	for j,val := range a {
+		if j == i {
+
+		} else {
+			appended = append(appended, val)
+		}
 	}
-	return append(a[:i], a[i+1:]...)
+	return appended
 }
 
 // Frequenzy Comparision of Node arrays.
@@ -251,6 +269,100 @@ func containSameNodes(a []*Node, b []*Node) bool {
 	return true
 }
 
+// Checks if a node is either PLUS or MULTIPLY (Cascadable Operation)
+func isEndNode(node *Node) bool {
+	switch node.operationType {
+	case PLUS, MULTIPLY:
+		return false
+	default:
+		return true
+	}
+}
+
+// Apply Multiplycation
+// a * b = ab
+// a * (a + b) = a * a + a * b
+//
+func multiplyNodes(x *Node, y *Node) *Node {
+	
+	if config.Options["show_debug_process"] {
+		cfmt.Printf("(Simplifier - 275:6 - multiplyNodes) {{Debug:}}::cyan|bold Multiplying ")
+ 		printATree(x)
+		cfmt.Printf(" and ")
+		printATree(y)
+		cfmt.Printf(" to ")
+	}
+	
+	if x.operationType == NUMBER && x.value == 1 {
+		if config.Options["show_debug_process"] {
+ 			printATree(y)
+			cfmt.Printf("\n")
+		}
+		return y
+	} else if y.operationType == NUMBER && y.value == 1 {
+		if config.Options["show_debug_process"] {
+ 			printATree(x)
+			cfmt.Printf("\n")
+		}
+		return x
+	}
+
+
+	res := &Node{PLUS, 0.0, "", nil, nil, []*Node{}}
+	
+	// Both are at the end of operation
+	if isEndNode(x) && isEndNode(y) {
+		res = &Node{MULTIPLY, 0.0, "", nil, nil, []*Node{x,y}}
+
+	// x is added into the multiply operation of y
+	} else if y.operationType == MULTIPLY && isEndNode(x) {
+		y.associative = append(y.associative, x)
+		res = y
+	
+	// y is added into the multiply operation of x
+	} else if x.operationType == MULTIPLY && isEndNode(y) {
+		x.associative = append(x.associative, y)
+		res = x
+	
+	// x is multiplied by every number in the y operation 
+	} else if y.operationType == PLUS && isEndNode(x) {
+		for _,val := range y.associative {
+			res.associative = append(res.associative, &Node{MULTIPLY, 0.0, "", nil, nil, []*Node{x, val}})
+		}
+
+	// x is multiplied by every number in the y operation 
+	} else if x.operationType == PLUS && isEndNode(y) {
+		for _,val := range x.associative {
+			res.associative = append(res.associative, &Node{MULTIPLY, 0.0, "", nil, nil, []*Node{y, val}})
+		}
+	
+	}	else if x.operationType == PLUS && y.operationType == MULTIPLY {
+		for _,val := range x.associative {
+			a := clone(y)
+			a.associative = append(a.associative, val)
+			res.associative = append(res.associative, a)
+		}
+	}	else if x.operationType == MULTIPLY && y.operationType == PLUS {
+		for _,val := range y.associative {
+			a := clone(x)
+			a.associative = append(a.associative, val)
+			res.associative = append(res.associative, a)
+		}
+	
+	// If both operations are not an end node, every value is multiplied.
+	}else {
+		for _, xVal := range x.associative {
+			for _, yVal := range y.associative {
+				res.associative = append(res.associative, &Node{MULTIPLY, 0.0, "", nil, nil, []*Node{xVal,yVal}})
+			}
+		}
+	}
+	if config.Options["show_debug_process"] {
+ 		printATree(res)
+		cfmt.Printf("\n")
+	}
+	return res
+}
 
 // ----------------------------------- Rules -----------------------------------
 
@@ -431,8 +543,8 @@ func simplifyAddCollect(n *Node) (*Node, bool, error) {
 	return nil, false, nil
 }
 
-// Collect all terms in `PLUS` operations.
-// 2 + 4 + a + b + a = 6 + 2a + b
+// Collect all terms in `MULTIPLY` operations.
+// a * a * b * 2 * 5 = 10 * b * a^2
 func simplifyMultCollect(n *Node) (*Node, bool, error) {
 	if n.operationType == MULTIPLY {
 		node :=	clone(n)
@@ -442,7 +554,7 @@ func simplifyMultCollect(n *Node) (*Node, bool, error) {
 		nVarOp := 0
 		
 		result := 1.0
-		varMap := make(map[string]int)
+		varMap := make(map[string]float64)
 
 		for i := 0; i < len(node.associative); i++ {
 			val := node.associative[i]
@@ -455,8 +567,8 @@ func simplifyMultCollect(n *Node) (*Node, bool, error) {
 			case VARIABLE:
 				varMap[val.variable]++
 				node.associative = removeFromNodeArray(node.associative, i)
-				if varMap[val.variable] >= 2 {
-					nVarOp ++
+				if varMap[val.variable] != 1 {
+					nVarOp++
 				}
 				i--
 			case MINUS:
@@ -464,51 +576,94 @@ func simplifyMultCollect(n *Node) (*Node, bool, error) {
 					varMap[val.rNode.variable]++
 					result *= -1.0
 					node.associative = removeFromNodeArray(node.associative, i)
-					if varMap[val.variable] >= 2 {
+					if varMap[val.rNode.variable] != 1 {
+						nVarOp++
+					}
+					nNumOp += 2
+					i--
+				}
+			case POWER:
+				if val.lNode.operationType == VARIABLE && val.rNode.operationType == NUMBER {
+					varMap[val.lNode.variable] += val.rNode.value
+					node.associative = removeFromNodeArray(node.associative, i)
+					if varMap[val.lNode.variable] != val.rNode.value {
 						nVarOp ++
 					}
 					i--
-				}
-			case DIVIDE:
-				if val.rNode.operationType == VARIABLE {
-					varMap[val.rNode.variable]--
+
+				} else if val.lNode.operationType == NUMBER && val.rNode.operationType == NUMBER && val.rNode.value == -1 {
+					result = result / val.lNode.value
 					node.associative = removeFromNodeArray(node.associative, i)
-					if varMap[val.variable] >= 2 {
-						nVarOp ++
-					}
+					nNumOp++
 					i--
 				}
 			}
 		}
-		if result != 1.0 {
+		if nNumOp >= 2 && nVarOp >= 2 && result == 1.0 {
+			changed = true
+		} else if result != 1 {
 			node.associative = append(node.associative, &Node{NUMBER, result, "", nil, nil, nil})
 			changed = true
-			// cfmt.Printf("{{Notice:}}::blue|bold Combined numbers in addition to %v\n", result)
 		}
 		if len(varMap) >= 1 {
 			for key, fact := range varMap {
 				if fact == 1 {
 					node.associative = append(node.associative, &Node{VARIABLE, 0.0, key, nil, nil, nil})
 					changed = true
-				} else if fact == -1 { 
-					// TODO: ^^^^^ Check if this is correct... Maybe it needs to go to the Power form?
-					newNode := &Node{DIVIDE, 0.0, "", &Node{NUMBER, 1.0, "", nil, nil, nil}, &Node{VARIABLE, 0.0, key, nil, nil, nil}, nil}
-					node.associative = append(node.associative, newNode)
+				} else if fact == 0 {
+					node.associative = append(node.associative, &Node{NUMBER, 1.0, "", nil, nil, nil})
 					changed = true
 				} else {
-					mult := &Node{POWER, 0.0, "", &Node{VARIABLE, 0.0, key, nil, nil, nil}, &Node{NUMBER, float64(fact), "", nil, nil, nil}, nil}
+					mult := &Node{POWER, 0.0, "", &Node{VARIABLE, 0.0, key, nil, nil, nil}, &Node{NUMBER, fact, "", nil, nil, nil}, nil}
 					node.associative = append(node.associative, mult)
 					changed = true
 				}
 			}
 		}
-		if changed && (nVarOp >= 2 || nNumOp >= 2) {
+		if changed && (nVarOp >= 1 || nNumOp >= 2) {
 			return node, true, nil
 		}
 	}
 	return nil, false, nil
 }
 
+
+// x * (x + y + z) = x^2 + x*y + z*y
+// (a+b) * (a+b) = a^2 + 2ab + b^2
+func simplifyDefact(node *Node) (*Node, bool, error) {
+	if node.operationType == MULTIPLY {
+		// Exit if we are at the end of the tree.
+		end := true 
+		for _, val := range node.associative {
+			if !isEndNode(val) {
+				end = false
+			}
+		}
+		if end {
+			return nil, false, nil
+		}
+
+		res := &Node{NUMBER, 1.0, "", nil, nil, nil}
+
+		for _, val := range node.associative {
+			res = multiplyNodes(res, val)
+		}
+		return res, true, nil
+	}
+	return nil, false, nil
+}
+
+
+
+// x^0 = 1.0
+func simplifyPowZero(node *Node) (*Node, bool, error) {
+	if node.operationType == POWER {
+		if isNumber(node.rNode) && isZero(node.rNode) {
+			return &Node{NUMBER, 1.0, "", nil, nil, nil}, true, nil
+		}
+	}
+	return nil, false, nil
+}
 
 // x * x = x^2
 // Currently Unfunctional
@@ -607,25 +762,25 @@ func simplifyConstantFold(node *Node) (*Node, bool, error) {
 	case VARIABLE, NUMBER, DIVIDE:
 		return nil, false, nil
 	case MULTIPLY, PLUS:
+		res := 0.0
 		for _, val := range node.associative {
-			if !isNumber(val) {
+			if isNumber(val) {
+				res += val.value
+			} else {
 				return nil, false, nil
 			}
 		}
 
-		if val, err := eval(node, true); err == nil {	
-			return &Node{NUMBER, val, "", nil, nil, nil}, true, nil
-		} else {
-			return nil, false, err
+		if config.Options["show_debug_process"] {
+			cfmt.Printf("{{Debug:}}::cyan|bold All values are numbers.\n")
+		}
+	
+		return &Node{NUMBER, res, "", nil, nil, nil}, true, nil
+	case MINUS:
+		if isNumber(node.lNode) && isNumber(node.rNode) {
+			return &Node{NUMBER, node.lNode.value - node.rNode.value, "", nil, nil, nil}, true, nil
 		}
 	default:
-		if isNumber(node.lNode) && isNumber(node.rNode) {
-			if val, err := eval(node, true); err == nil {	
-				return &Node{NUMBER, val, "", nil, nil, nil}, true, nil
-			} else {
-				return nil, false, err
-			}
-		}
 	}
 	return nil, false, nil
 }

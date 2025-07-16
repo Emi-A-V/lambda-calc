@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/i582/cfmt/cmd/cfmt"
-	"unicode"
 	"errors"
 	"strconv"
+	"unicode"
+
+	"github.com/i582/cfmt/cmd/cfmt"
 )
 
 func lexer(input string) ([]Token, error) {
@@ -70,7 +71,7 @@ func lexer(input string) ([]Token, error) {
 			} else if unicode.IsSpace(rune(input[i])) {
 				// Skip empty space
 				i += 1
-			} else {
+			} else if unicode.IsLetter(rune(input[i])) {
 				// Search for constants or variables 
 				str := ""
 
@@ -82,16 +83,17 @@ func lexer(input string) ([]Token, error) {
 				// Check Constants
 				if val, ok := config.Constants[str]; ok {
 					tokens = append(tokens, Token{NUMBER, val, ""})
-				} else if str == "sqrt" { 
+				} else if str == "sqrt" {
 					tokens = append(tokens, Token{SQRT, 0.0, ""})
 				} else {
 					j := 0
 					for j < len(str) {
-						
 						// Debug
 						if config.Options["show_debug_process"] {
-							if _, ok := variables[string(str[j])]; ok {
-								cfmt.Printf("{{Notice:}}::blue|bold found defined variable %s with value.\n", string(str[j]))
+							if val, ok := variables[string(str[j])]; ok {
+								cfmt.Printf("{{Notice:}}::blue|bold found defined variable %s with value: ", string(str[j]))
+								printATree(&val)
+								cfmt.Printf(".\n")
 							} else {
 								cfmt.Printf("{{Notice:}}::blue|bold found undefined variable %s.\n", string(str[j]))
 							}
@@ -103,9 +105,10 @@ func lexer(input string) ([]Token, error) {
 					// if i >= len(input) {
 					// 	i -= 1
 					// }
-					// cfmt.Printf("{{Error:}}::red|bold Unable to parse symbole at %v, reading unrecognised character: '%s'.\n", i, string(input[i]))
-					// return nil, errors.New("unrecognised character")
 				}
+			} else {
+				cfmt.Printf("{{Error:}}::red|bold Unable to parse symbol at %s, unregocnized character.\n", string(input[i]))
+				return nil, errors.New("number parsing")
 			}
 		}
 	}
