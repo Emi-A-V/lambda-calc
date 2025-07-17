@@ -63,12 +63,15 @@ func cmdline() {
 	}
 
 	for {
+		arrow := ""
 		if config.Options["nerdfont"] {
 			cfmt.Println("{{}}::blue{{󰪚 Math}}::bgBlue|white{{}}::blue ")
+			arrow = "  ╰─▶ "
 		} else {
-			cfmt.Println("{{}}::blue{{Math}}::bgBlue|white{{}}::blue ")
+			cfmt.Println("Math")
+			arrow = ">>> "
 		}
-		if cmd, err := line.Prompt("  ╰─▶ "); err == nil {
+		if cmd, err := line.Prompt(arrow); err == nil {
 			line.AppendHistory(cmd)
 			switch cmd {
 			case "exit":
@@ -87,6 +90,7 @@ help 		show a help screen with useful information.
 exit 		exit the CLI.
 define x = ...	define a variable with the value of the equation.
 drop x 		undefine a variable.
+list  	  list all currently defined variables.
 solve 		solve an equation by a variable if possible.
 
 `)

@@ -12,11 +12,12 @@ type RewriteRule func(*Node) (*Node, bool, error)
 
 // Constant index in rule set
 const (
-	NORMAL = 0
-	SOLVE = 1
+	UNWIND = 0
+	REWIND = 1
+	SOLVE = 2
 )
 
-var NormalRules = []RewriteRule{
+var UnwindRules = []RewriteRule {
 	// Basic elimination
 	simplifyAddZero,		// 0
 	simplifySubZero,		// 1
@@ -44,7 +45,11 @@ var NormalRules = []RewriteRule{
 	simplifyConstantFold,	// 13
 }
 
-var SolveRules = []RewriteRule{
+var RewindRules = []RewriteRule {
+
+}
+
+var SolveRules = []RewriteRule {
 	// Basic elimination
 	simplifyAddZero,
 	simplifySubZero,
@@ -64,7 +69,8 @@ var SolveRules = []RewriteRule{
 }
 
 var RuleSets = [][]RewriteRule{
-	NormalRules,
+	UnwindRules,
+	RewindRules,
 	SolveRules,
 }
 
@@ -493,7 +499,7 @@ func simplifyAddCollect(n *Node) (*Node, bool, error) {
 			case VARIABLE:
 				varMap[val.variable]++
 				node.associative = removeFromNodeArray(node.associative, i)
-				if varMap[val.variable] >= 2 {
+				if varMap[val.variable] != 1 {
 					nVarOp ++
 				}
 				i--
@@ -501,16 +507,17 @@ func simplifyAddCollect(n *Node) (*Node, bool, error) {
 				if val.rNode.operationType == VARIABLE {
 					varMap[val.rNode.variable]--
 					node.associative = removeFromNodeArray(node.associative, i)
-					if varMap[val.variable] >= 2 {
-						nVarOp ++
+					if varMap[val.variable] != -1 {
+						nVarOp += 2
 					}
 					i--
 				}
 			case MULTIPLY:
 				if ok, factor, variable := getFactor(val); ok {
+					cfmt.Printf("%v\n", factor.value)
 					varMap[variable.variable] += factor.value
 					node.associative = removeFromNodeArray(node.associative, i)
-					if varMap[val.variable] >= 2 {
+					if varMap[val.variable] != factor.value {
 						nVarOp ++
 					}
 					i--
@@ -523,10 +530,13 @@ func simplifyAddCollect(n *Node) (*Node, bool, error) {
 		}
 		if len(varMap) >= 1 {
 			for key, fact := range varMap {
-				if fact == 1 {
+				switch fact {
+				case 0:
+					changed = true
+				case 1:
 					node.associative = append(node.associative, &Node{VARIABLE, 0.0, key, nil, nil, nil})
 					changed = true
-				} else {
+				default:
 					mult := &Node{MULTIPLY, 0.0, "", nil, nil, []*Node{ 
 						{VARIABLE, 0.0, key, nil, nil, nil},
 						{NUMBER, float64(fact), "", nil, nil, nil},

@@ -172,7 +172,7 @@ func calc(cmd string) (float64, error) {
 	}
 
 
-	simplified, err := simplify(atred, NORMAL)
+	simplified, err := simplify(atred, UNWIND)
 	if err != nil {
 		return 0, err
 	}
