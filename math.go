@@ -1,7 +1,6 @@
 package lambdaengine
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -18,8 +17,8 @@ const (
 	SQRT         = iota
 	LPARENTHESES = iota
 	RPARENTHESES = iota
-	EQUAL				 = iota
-	VARIABLE		 = iota
+	EQUAL        = iota
+	VARIABLE     = iota
 )
 
 type Token struct {
@@ -31,15 +30,15 @@ type Token struct {
 type Node struct {
 	operationType int
 	value         float64
-	variable 			string
+	variable      string
 	lNode         *Node
 	rNode         *Node
-	associative 	[]*Node
+	associative   []*Node
 }
 
 type Return struct {
-	Str 	string
-	Err 	bool
+	Str   string
+	Err   bool
 	ErrID int
 }
 
@@ -47,80 +46,80 @@ var variables map[string]Node = make(map[string]Node)
 
 var variableOccurrence []string
 
-func Input(cmd string) (Return) {
+func Input(cmd string) (Return, string) {
 	i := 0
 	str := ""
 
 	variableOccurrence := []string{}
 
-	for i < len(cmd) && unicode.IsLetter(rune(cmd[i])){
+	for i < len(cmd) && unicode.IsLetter(rune(cmd[i])) {
 		str += string(cmd[i])
 		i += 1
 	}
 	switch str {
 	case "define":
-		if i >= len(cmd) - 1 {
-			return mathErrors[errors.New("incomplete define statement")]
+		if i >= len(cmd)-1 {
+			return mathErrors["incomplete define statement"], ""
 		}
 
 		lexed, err := lexer(cmd[i:])
 		if err != nil {
-			return mathErrors[err]
+			return mathErrors[err.Error()], ""
 		}
-		
+
 		if len(lexed) <= 2 {
-			return mathErrors[errors.New("incomplete define statement")]
+			return mathErrors["incomplete define statement"], ""
 		}
 
 		if lexed[0].tokenType == VARIABLE && lexed[1].tokenType == EQUAL {
-			
+
 			if len(variableOccurrence) >= 2 {
 				if slices.Contains(variableOccurrence[1:], variableOccurrence[0]) {
-					return  mathErrors[errors.New("variable recursion")]
+					return mathErrors["variable recursion"], ""
 				}
 			}
 
-			node, err := parse(lexed[2:])			
+			node, err := parse(lexed[2:])
 			if err != nil {
-				return mathErrors[err]
+				return mathErrors[err.Error()], ""
 			}
-			
+
 			variables[lexed[0].variable] = node
-			return Return{"Variable defined.", false, 201}
+			return Return{"Variable defined.", false, 201}, ""
 		}
-		return mathErrors[errors.New("incorrect assertion")]
+		return mathErrors["incorrect assertion"], ""
 	case "drop":
-		if i >= len(cmd) - 1 {
-			return mathErrors[errors.New("incomplete drop statement")]
+		if i >= len(cmd)-1 {
+			return mathErrors["incomplete drop statement"], ""
 		}
 
 		lexed, err := lexer(cmd[i:])
 		if err != nil {
-			return mathErrors[err]
+			return mathErrors[err.Error()], ""
 		}
 
 		if _, ok := variables[lexed[0].variable]; ok {
 			delete(variables, lexed[0].variable)
-			return Return{"Variable deleted.", false, 202} 
+			return Return{"Variable deleted.", false, 202}, ""
 		} else {
-			return mathErrors[errors.New("no variable to drop")]
+			return mathErrors["no variable to drop"], ""
 		}
 	case "solve":
 		lexed, err := lexer(cmd)
 		if err != nil {
-			return mathErrors[err]
+			return mathErrors[err.Error()], ""
 		}
 		parsed, err := parse(lexed)
 		if err != nil {
-			return mathErrors[err]
+			return mathErrors[err.Error()], ""
 		}
-		
+
 		solve(&parsed)
 
-		return Return{"", false, 200}
+		return Return{"", false, 200}, ""
 	case "list":
 		if len(variables) <= 0 {
-			return Return{"", false, 200}
+			return Return{"No variables defined yet.", false, 200}, ""
 		}
 
 		str := ""
@@ -130,33 +129,44 @@ func Input(cmd string) (Return) {
 			str += printATree(&val)
 			str += "\n"
 		}
-		return Return{str, false, 203}
+		return Return{"", false, 203}, str
 	default:
 		num, err := calc(cmd)
 		if err != nil {
+			return mathErrors[err.Error()], num
 			return mathErrors[err]
 		} else {
+			return Return{"", false, 200}, num
 			return Return{num, false, 200}
 		}
 	}
 }
 
 func calc(cmd string) (string, error) {
+func calc(cmd string) (string, error) {
 	lexed, err := lexer(cmd)
 	if err != nil {
+		return "", err
 		return "", err
 	}
 	parsed, err := parse(lexed)
 	if err != nil {
 		return "", err
+		return "", err
 	}
 
 	atred := atr(&parsed)
-	
+
 	simplified, err := simplify(atred, NORMAL)
 	if err != nil {
+		return printATree(atred), err
 		return "", err
 	}
+	result, err := eval(simplified, false)
+	if err != nil {
+		return printATree(simplified), err
+	}
+	return strconv.FormatFloat(result, 'f', -1, 64), nil
 	
 	// result, err := eval(simplified, false)
 	// if err != nil {
@@ -164,8 +174,6 @@ func calc(cmd string) (string, error) {
 	// }
 	return printATree(simplified), nil
 }
-
-
 
 func printATree(node *Node) string {
 	str := ""
@@ -182,7 +190,7 @@ func printATree(node *Node) string {
 		str += "("
 		for i, val := range node.associative {
 			str += printATree(val)
-			if i != len(node.associative) - 1 {
+			if i != len(node.associative)-1 {
 				str += "+"
 			}
 		}
@@ -197,7 +205,7 @@ func printATree(node *Node) string {
 		str += "("
 		for i, val := range node.associative {
 			str += printATree(val)
-			if i != len(node.associative) - 1 {
+			if i != len(node.associative)-1 {
 				str += "*"
 			}
 		}
@@ -274,4 +282,3 @@ func printTree(node *Node) string {
 	}
 	return str
 }
-
