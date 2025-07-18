@@ -134,24 +134,19 @@ func Input(cmd string) (Return, string) {
 		num, err := calc(cmd)
 		if err != nil {
 			return mathErrors[err.Error()], num
-			return mathErrors[err]
 		} else {
 			return Return{"", false, 200}, num
-			return Return{num, false, 200}
 		}
 	}
 }
 
 func calc(cmd string) (string, error) {
-func calc(cmd string) (string, error) {
 	lexed, err := lexer(cmd)
 	if err != nil {
-		return "", err
 		return "", err
 	}
 	parsed, err := parse(lexed)
 	if err != nil {
-		return "", err
 		return "", err
 	}
 
@@ -160,19 +155,12 @@ func calc(cmd string) (string, error) {
 	simplified, err := simplify(atred, NORMAL)
 	if err != nil {
 		return printATree(atred), err
-		return "", err
 	}
 	result, err := eval(simplified, false)
 	if err != nil {
 		return printATree(simplified), err
 	}
 	return strconv.FormatFloat(result, 'f', -1, 64), nil
-	
-	// result, err := eval(simplified, false)
-	// if err != nil {
-	// 	return 0, err
-	// }
-	return printATree(simplified), nil
 }
 
 func printATree(node *Node) string {
