@@ -152,7 +152,7 @@ func calc(cmd string) (string, error) {
 
 	atred := atr(&parsed)
 
-	simplified, err := simplify(atred, NORMAL)
+	simplified, err := simplify(atred, UNWIND)
 	if err != nil {
 		return printATree(atred), err
 	}
