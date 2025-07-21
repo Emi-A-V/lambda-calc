@@ -189,6 +189,132 @@ func isEqual(a, b *Node) bool {
 	return true
 }
 
+// Similar to isEqual, but it returns true if a and b are factors of each other
+// 1, 2 -> true, 2
+// a, 2a -> true, 2
+// a, a -> true, 1
+// a, b -> false, 0
+// abcd, abcd -> true, 1
+// 2ab, ab -> true, 0.5
+// a + b, 2a + 2b -> true, 2
+func getMultiple(a, b *Node) (bool, float64) {
+	if a.operationType != b.operationType {
+		if a.operationType == VARIABLE && b.operationType == MULTIPLY {
+			if ok, factor, variable := getFactor(b); ok {
+				if variable.variable == a.variable {
+					return true, factor.value
+				}
+			}
+		} else if b.operationType == VARIABLE && a.operationType == MULTIPLY {
+			if ok, factor, variable := getFactor(a); ok {
+				if variable.variable == b.variable {
+					return true, 1 / factor.value
+				}
+			}
+		} else if a.operationType == MINUS {
+			ok, x := getMultiple(a.rNode, b)
+			return ok, x * -1
+		} else if b.operationType == MINUS {
+			ok, x := getMultiple(a, b.rNode)
+			return ok, x * -1
+		}
+		return false, 0.0
+
+		// Check
+	} else if a.operationType == MULTIPLY {
+		factor := 1.0
+		used := make(map[*Node]bool)
+
+		for _, x := range b.associative {
+			if x.operationType == NUMBER {
+				factor = factor * x.value
+			}
+		}
+
+		for _, x := range a.associative {
+			if x.operationType == NUMBER {
+				factor = factor / x.value
+				continue
+			}
+
+			contains := false
+			for _, y := range b.associative {
+
+				if y.operationType == NUMBER {
+					continue
+				}
+
+				if _, ok := used[y]; ok {
+					continue
+				}
+
+				if isEqual(x, y) {
+					contains = true
+					used[y] = true
+					break
+				}
+			}
+			if !contains {
+				return false, 0.0
+			}
+		}
+		return true, factor
+	} else if a.operationType == PLUS {
+		factor := 1.0
+		isFactorDefined := false
+		used := make(map[*Node]bool)
+
+		for _, x := range b.associative {
+			if x.operationType == NUMBER {
+				factor = factor * x.value
+			}
+		}
+
+		for _, x := range a.associative {
+			if x.operationType == NUMBER {
+				factor = factor / x.value
+				continue
+			}
+
+			contains := false
+			for _, y := range b.associative {
+
+				if y.operationType == NUMBER {
+					continue
+				}
+
+				if _, ok := used[y]; ok {
+					continue
+				}
+
+				if ok, fact := getMultiple(x, y); ok {
+					if isFactorDefined && factor == fact {
+						contains = true
+						used[y] = true
+						break
+					} else if !isFactorDefined {
+						isFactorDefined = true
+						factor = fact
+						contains = true
+						used[y] = true
+						break
+					} else {
+						return false, 0
+					}
+				}
+			}
+			if !contains {
+				return false, 0.0
+			}
+		}
+		return true, factor
+
+	} else if a.operationType == NUMBER {
+		return true, a.value / b.value
+	}
+	return false, 0.0
+}
+
 // Returns wether there is a factor of a variable, and if so than it also returns the factor and the variable.
 // -> isAFactor, factor, variable
 func getFactor(node *Node) (bool, *Node, *Node) {
@@ -464,7 +590,8 @@ func simplifyAddCollect(n *Node) (*Node, bool, error) {
 				}
 				i--
 			case MINUS:
-				if val.rNode.operationType == VARIABLE {
+				switch val.rNode.operationType {
+				case VARIABLE:
 					varMap[val.rNode.variable]--
 					node.associative = removeFromNodeArray(node.associative, i)
 					if varMap[val.variable] != -1 {
@@ -473,14 +600,23 @@ func simplifyAddCollect(n *Node) (*Node, bool, error) {
 					i--
 				}
 			case MULTIPLY:
-				if ok, factor, variable := getFactor(val); ok {
-					varMap[variable.variable] += factor.value
-					node.associative = removeFromNodeArray(node.associative, i)
-					if varMap[val.variable] != factor.value {
-						nVarOp++
+				num := 1.0
+				newVal := clone(val)
+
+				for y := i + 1; y < len(node.associative); y++ {
+					compVal := node.associative[y]
+
+					if ok, fact := getMultiple(val, compVal); ok {
+						num += fact
+						node.associative = removeFromNodeArray(node.associative, y)
+						y--
+						nVarOp += 2
+						changed = true
 					}
-					i--
 				}
+
+				newVal.associative = append(newVal.associative, &Node{NUMBER, num, "", nil, nil, nil})
+				node.associative[i] = newVal
 			}
 		}
 		if result != 0.0 {
@@ -716,8 +852,6 @@ func simplifyDivFact(node *Node) (*Node, bool, error) {
 	}
 	return nil, false, nil
 }
-
-// (x + y) * z = x * z + y * z
 
 // eval everything that cannont produce an irational number
 func simplifyConstantFold(node *Node) (*Node, bool, error) {
