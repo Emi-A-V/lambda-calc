@@ -42,6 +42,12 @@ type Return struct {
 	ErrID int
 }
 
+type Var struct {
+	Var string
+	Dep []string
+	Equ string
+}
+
 var variables map[string]Node = make(map[string]Node)
 
 var variableOccurrence []string
@@ -85,6 +91,7 @@ func Input(cmd string) (Return, string) {
 			}
 
 			variables[lexed[0].variable] = node
+			eventVariableDefinedCallback(Var{lexed[0].variable, []string{}, printTree(&node)})
 			return Return{"Variable defined.", false, 201}, ""
 		}
 		return mathErrors["incorrect assertion"], ""
@@ -98,7 +105,8 @@ func Input(cmd string) (Return, string) {
 			return mathErrors[err.Error()], ""
 		}
 
-		if _, ok := variables[lexed[0].variable]; ok {
+		if val, ok := variables[lexed[0].variable]; ok {
+			eventVariableDroppedCallback(Var{lexed[0].variable, []string{}, printTree(&val)})
 			delete(variables, lexed[0].variable)
 			return Return{"Variable deleted.", false, 202}, ""
 		} else {
