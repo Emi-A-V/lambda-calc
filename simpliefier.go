@@ -183,6 +183,8 @@ func isEqual(a, b *Node) bool {
 		return a.value == b.value
 	} else if a.operationType == DIVIDE {
 		return isEqual(a.lNode, b.lNode) && isEqual(a.rNode, b.rNode)
+	} else if a.operationType == VARIABLE {
+		return a.variable == b.variable
 	} else if a.operationType == MULTIPLY || a.operationType == PLUS {
 		return containSameNodes(a.associative, b.associative)
 	}
@@ -223,41 +225,62 @@ func getMultiple(a, b *Node) (bool, float64) {
 		// Check
 	} else if a.operationType == MULTIPLY {
 		factor := 1.0
-		used := make(map[*Node]bool)
+		// Map for checking if a Node already appeared in the other term.
+		alreadySeenB := make(map[*Node]int)
 
-		for _, x := range b.associative {
-			if x.operationType == NUMBER {
-				factor = factor * x.value
+		// Multiply the numbers in term b to the result factor and add all other factors to the alreadySeen map.
+		// We shouldn't be able to see the same factor twice, because previously we simplified all duplicate factors to powers?
+		for _, bVal := range b.associative {
+			if bVal.operationType == NUMBER {
+				factor = factor * bVal.value
+			} else {
+				alreadySeenB[bVal] = 0
 			}
 		}
 
-		for _, x := range a.associative {
-			if x.operationType == NUMBER {
-				factor = factor / x.value
+		// For each value in the term a, change the result factor or search for the equal in the term b.
+		for _, aVal := range a.associative {
+			found := false
+
+			// If current aVal is a Number divide the factor.
+			if aVal.operationType == NUMBER {
+				factor = factor / aVal.value
 				continue
 			}
 
-			contains := false
-			for _, y := range b.associative {
-
-				if y.operationType == NUMBER {
+			// Else search for the equal factor
+			for _, bVal := range b.associative {
+				// Skip if we see a number.
+				if bVal.operationType == NUMBER {
 					continue
 				}
 
-				if _, ok := used[y]; ok {
-					continue
-				}
-
-				if isEqual(x, y) {
-					contains = true
-					used[y] = true
-					break
+				// If we have not seen the value already and it is equal to aVal.
+				if alreadySeenB[bVal] < 1 {
+					if isEqual(aVal, bVal) {
+						// Add it to already seen so it is not checked again later.
+						alreadySeenB[bVal]++
+						found = true
+					}
 				}
 			}
-			if !contains {
-				return false, 0.0
+			// If we did not find a value in term b and it is not a number, we do not have a multple of the other term.
+			if !found {
+				return false, 0
 			}
 		}
+
+		// After we have searched for all values of
+		for _, bVal := range b.associative {
+			if bVal.operationType == NUMBER {
+				continue
+			}
+			// If we have not seen a factor of term b in a, return false.
+			if alreadySeenB[bVal] < 1 {
+				return false, 0
+			}
+		}
+		// Else return true and the factor.
 		return true, factor
 	} else if a.operationType == PLUS {
 		factor := 1.0
@@ -603,10 +626,11 @@ func simplifyAddCollect(n *Node) (*Node, bool, error) {
 				num := 1.0
 				newVal := clone(val)
 
+				// Knowing that if we found a previous multiple of this term, it should already be simplified.
+				// Searching for next multiple of the current term.
 				for y := i + 1; y < len(node.associative); y++ {
-					compVal := node.associative[y]
-
-					if ok, fact := getMultiple(val, compVal); ok {
+					// If we find a term that is a multiple..
+					if ok, fact := getMultiple(val, node.associative[y]); ok {
 						num += fact
 						node.associative = removeFromNodeArray(node.associative, y)
 						y--
@@ -614,8 +638,9 @@ func simplifyAddCollect(n *Node) (*Node, bool, error) {
 						changed = true
 					}
 				}
-
-				newVal.associative = append(newVal.associative, &Node{NUMBER, num, "", nil, nil, nil})
+				if num != 1 {
+					newVal.associative = append(newVal.associative, &Node{NUMBER, num, "", nil, nil, nil})
+				}
 				node.associative[i] = newVal
 			}
 		}
@@ -715,6 +740,7 @@ func simplifyMultCollect(n *Node) (*Node, bool, error) {
 				if fact == 1 {
 					node.associative = append(node.associative, &Node{VARIABLE, 0.0, key, nil, nil, nil})
 					changed = true
+					// If the Variables multiply together to x^0, replace them with 1
 				} else if fact == 0 {
 					node.associative = append(node.associative, &Node{NUMBER, 1.0, "", nil, nil, nil})
 					changed = true
@@ -856,8 +882,12 @@ func simplifyDivFact(node *Node) (*Node, bool, error) {
 // eval everything that cannont produce an irational number
 func simplifyConstantFold(node *Node) (*Node, bool, error) {
 	switch node.operationType {
-	case VARIABLE, NUMBER, DIVIDE:
+	case VARIABLE, NUMBER:
 		return nil, false, nil
+	case DIVIDE:
+		if isNumber(node.lNode) && isNumber(node.rNode) {
+			return &Node{NUMBER, node.lNode.value / node.rNode.value, "", nil, nil, nil}, true, nil
+		}
 	case MULTIPLY, PLUS:
 		res := 0.0
 		for _, val := range node.associative {
