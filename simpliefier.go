@@ -897,23 +897,11 @@ func simplifyRefact(node *Node) (*Node, bool, error) {
 
 		if val.operationType != MULTIPLY {
 			if ok, fact := findCommonFactor(val, node.associative); ok {
-				if config.Options["show_debug_process"] {
-					cfmt.Printf("    Found factor: ")
-					printATree(fact)
-					cfmt.Printf("\n")
-				}
 				factors.associative = append(factors.associative, fact)
 			}
 		} else {
 			for _, factor := range val.associative {
 				if ok, fact := findCommonFactor(factor, node.associative); ok {
-					if config.Options["show_debug_process"] {
-						cfmt.Printf("    Found subfactor: ")
-						printATree(fact)
-						cfmt.Printf(" in addend: ")
-						printATree(val)
-						cfmt.Printf("\n")
-					}
 					factors.associative = append(factors.associative, fact)
 				}
 			}
@@ -940,7 +928,6 @@ func simplifyRefact(node *Node) (*Node, bool, error) {
 				newNode.associative = append(newNode.associative, newSubNode)
 			}
 			factors.associative = append(factors.associative, newNode)
-			printATree(factors)
 			return factors, true, nil
 		}
 		
@@ -951,26 +938,11 @@ func simplifyRefact(node *Node) (*Node, bool, error) {
 // Check if a given factor appears in all factors. If it does also return resulting rest.
 func findCommonFactor(node *Node, addends []*Node) (bool, *Node) {
 	for _, val := range addends {
-		if config.Options["show_debug_process"] {
-			cfmt.Printf("    Searching factor: ")
-			printATree(node)
-			cfmt.Printf(" in addend: ")
-			printATree(val)
-			cfmt.Printf("\n")
-		}
-		
 		if node.operationType == POWER {
 			return findCommonFactor(node.lNode, addends)
 		}
 
 		if !canFactor(node, val) {
-			if config.Options["show_debug_process"] {
-				cfmt.Printf("    Breaking Search, did not find: ")
-				printATree(node)
-				cfmt.Printf(" in addend: ")
-				printATree(val)
-				cfmt.Printf("\n")
-			}
 			return false, nil
 		}
 	}

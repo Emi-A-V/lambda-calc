@@ -191,7 +191,7 @@ func calc(cmd string) (float64, error) {
 	
 	// Debug 
 	if config.Options["show_debug_process"] {
-		cfmt.Printf("{{Debug:}}::cyan|bold Rwound result: ")
+		cfmt.Printf("{{Debug:}}::cyan|bold Rewound result: ")
 		printATree(rewound)
 		cfmt.Println("")
 	}
