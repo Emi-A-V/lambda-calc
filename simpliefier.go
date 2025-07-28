@@ -42,7 +42,21 @@ var UnwindRules = []RewriteRule {
 }
 
 var RewindRules = []RewriteRule {
+	simplifyAddZero,		// 0
+	simplifySubZero,		// 1
+	simplifySingleAdd,	// 2
+	simplifyMultZero,		// 3
+	simplifyMultOne,		// 4
+	simplifyDivOne,		 	// 5
+	simplifyZeroDiv,		// 6
+	simplifyDivSelf,		// 7
 
+	simplifyRefact,
+	simplifyAddCollect,		// 10
+	simplifyMultCollect,	// 12
+	simplifyConstantFold,	// 13
+	simplifyPowZero,		// 8
+	simplifyMultPow,		// 9
 }
 
 var SolveRules = []RewriteRule {
@@ -212,13 +226,13 @@ func isEqual(a, b *Node) bool {
 func getMultiple(a, b *Node) (bool, float64) {
 	if a.operationType != b.operationType {
 		if a.operationType == VARIABLE && b.operationType == MULTIPLY {
-			if ok, factor, variable := getFactor(b); ok {
+			if ok, factor, variable := getNumFactor(b); ok {
 				if variable.variable == a.variable {
 					return true, factor.value
 				}
 			}
 		} else if b.operationType == VARIABLE && a.operationType == MULTIPLY {
-			if ok, factor, variable := getFactor(a); ok {
+			if ok, factor, variable := getNumFactor(a); ok {
 				if variable.variable == b.variable {
 					return true, 1 / factor.value
 				}
@@ -380,7 +394,7 @@ func getMultiple(a, b *Node) (bool, float64) {
 
 // Returns wether there is a factor of a variable, and if so than it also returns the factor and the variable.
 // -> isAFactor, factor, variable
-func getFactor(node *Node) (bool, *Node, *Node) {
+func getNumFactor(node *Node) (bool, *Node, *Node) {
 	if node.operationType == MULTIPLY {
 		if len(node.associative) == 2 {
 			if node.associative[0].operationType == NUMBER && node.associative[1].operationType == VARIABLE {
@@ -555,6 +569,7 @@ func simplifyAddZero(node *Node) (*Node, bool, error) {
 			if isZero(val) {
 				changed = true
 				node.associative = removeFromNodeArray(node.associative, i)
+				i--
 			}
 		}
 		if changed {
@@ -590,10 +605,12 @@ func simplifyMultZero(node *Node) (*Node, bool, error) {
 func simplifyMultOne(node *Node) (*Node, bool, error) {
 	if node.operationType == MULTIPLY {
 		changed := false
-		for i, val := range node.associative {
-			if val.operationType == NUMBER && val.value == 0.0 {
+		for i := 0; i < len(node.associative); i++ {
+			val := node.associative[i]
+			if val.operationType == NUMBER && val.value == 1.0 {
 				changed = true
 				node.associative = removeFromNodeArray(node.associative, i)
+				i--
 			}
 		}
 		if changed {
@@ -708,7 +725,6 @@ func simplifyAddCollect(n *Node) (*Node, bool, error) {
 						num += fact
 						node.associative = removeFromNodeArray(node.associative, y)
 						y--
-						cfmt.Println("Trigger Change")
 						nVarOp += 2
 						changed = true
 					}
@@ -857,6 +873,133 @@ func simplifyDefact(node *Node) (*Node, bool, error) {
 		return res, true, nil
 	}
 	return nil, false, nil
+}
+
+
+
+// Finds the commen factor of all addends and puts it outside.
+// abc + acd + ade -> a * (bc + cd + de)
+// abc + a^2cd + ade -> a * (bc + acd + de)
+func simplifyRefact(node *Node) (*Node, bool, error) {
+	if node.operationType == PLUS {
+		if len(node.associative) <= 1 {
+			return nil, false, nil
+		}
+		factors := &Node{MULTIPLY, 0.0, "", nil, nil, []*Node{}}
+
+		if config.Options["show_debug_process"] {
+			cfmt.Printf("(Simplifier - 872:4 - simplifyRefact) {{Debug:}}::cyan|bold Searching for greatest common factor in: ")
+			printATree(node)
+			cfmt.Printf("\n")
+		}
+
+		val := node.associative[0]
+
+		if val.operationType != MULTIPLY {
+			if ok, fact := findCommonFactor(val, node.associative); ok {
+				if config.Options["show_debug_process"] {
+					cfmt.Printf("    Found factor: ")
+					printATree(fact)
+					cfmt.Printf("\n")
+				}
+				factors.associative = append(factors.associative, fact)
+			}
+		} else {
+			for _, factor := range val.associative {
+				if ok, fact := findCommonFactor(factor, node.associative); ok {
+					if config.Options["show_debug_process"] {
+						cfmt.Printf("    Found subfactor: ")
+						printATree(fact)
+						cfmt.Printf(" in addend: ")
+						printATree(val)
+						cfmt.Printf("\n")
+					}
+					factors.associative = append(factors.associative, fact)
+				}
+			}
+		}
+		if config.Options["show_debug_process"] {
+			cfmt.Printf("    Result Factor: ")
+			printATree(factors)
+			cfmt.Printf("\n")
+		}
+
+		if len(factors.associative) >= 1 {
+			newNode := &Node{PLUS, 0.0, "", nil, nil, []*Node{}}
+			for _, val := range node.associative {
+				newSubNode := &Node{MULTIPLY, 0.0, "", nil, nil, []*Node{}}
+				for _, fact := range factors.associative {
+					newSubNode.associative = append(newSubNode.associative, &Node{POWER, 0.0, "", fact, &Node{NUMBER, -1.0, "", nil, nil, nil}, nil})
+				}
+
+				if val.operationType == MULTIPLY {
+					newSubNode.associative = append(newSubNode.associative, val.associative...)
+				} else {
+					newSubNode.associative = append(newSubNode.associative, val)
+				}
+				newNode.associative = append(newNode.associative, newSubNode)
+			}
+			factors.associative = append(factors.associative, newNode)
+			printATree(factors)
+			return factors, true, nil
+		}
+		
+	}
+	return nil, false, nil
+}
+
+// Check if a given factor appears in all factors. If it does also return resulting rest.
+func findCommonFactor(node *Node, addends []*Node) (bool, *Node) {
+	for _, val := range addends {
+		if config.Options["show_debug_process"] {
+			cfmt.Printf("    Searching factor: ")
+			printATree(node)
+			cfmt.Printf(" in addend: ")
+			printATree(val)
+			cfmt.Printf("\n")
+		}
+		
+		if node.operationType == POWER {
+			return findCommonFactor(node.lNode, addends)
+		}
+
+		if !canFactor(node, val) {
+			if config.Options["show_debug_process"] {
+				cfmt.Printf("    Breaking Search, did not find: ")
+				printATree(node)
+				cfmt.Printf(" in addend: ")
+				printATree(val)
+				cfmt.Printf("\n")
+			}
+			return false, nil
+		}
+	}
+	return true, node 
+}
+
+// Returns the factor of a to make b. (factor, node) -> ok 
+// ab, abc -> true
+// a, a^2b -> true
+func canFactor(a,b *Node) bool {
+	switch b.operationType {
+	case NUMBER:
+		return a.operationType == NUMBER
+	case VARIABLE:
+		return isEqual(a,b)
+	case MINUS:
+		return canFactor(a, b.rNode)
+	case MULTIPLY:
+		for _, val := range b.associative {
+			if canFactor(a,val) {
+				return true
+			}
+		}
+	case POWER:
+		return canFactor(a, b.lNode)
+	default:
+		return isEqual(a, b)
+	}
+	return false
 }
 
 

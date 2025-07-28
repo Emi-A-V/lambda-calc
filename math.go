@@ -172,19 +172,31 @@ func calc(cmd string) (float64, error) {
 	}
 
 
-	simplified, err := simplify(atred, UNWIND)
+	unwound, err := simplify(atred, UNWIND)
 	if err != nil {
 		return 0, err
 	}
 	
 	// Debug 
 	if config.Options["show_debug_process"] {
-		cfmt.Printf("{{Debug:}}::cyan|bold simplified result: ")
-		printATree(simplified)
+		cfmt.Printf("{{Debug:}}::cyan|bold Unwound result: ")
+		printATree(unwound)
 		cfmt.Println("")
 	}
 
-	result, err := eval(simplified, false)
+	rewound, err := simplify(unwound, REWIND)
+	if err != nil {
+		return 0, err
+	}
+	
+	// Debug 
+	if config.Options["show_debug_process"] {
+		cfmt.Printf("{{Debug:}}::cyan|bold Rwound result: ")
+		printATree(rewound)
+		cfmt.Println("")
+	}
+
+	result, err := eval(rewound, false)
 	if err != nil {
 		return 0, err
 	}
