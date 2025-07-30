@@ -1,34 +1,49 @@
-# lambda-calc
-
+# lambda-calc (engine)
 **L**ogical **A**dvanced **M**athmatical **B**ackend for **D**ynamic **A**nalysis of **C**alculation and **A**lgebra with **L**aTeX **C**uteness
 
-lambda-calc is my shot at an advanced scientific calculator with symbolic expressions. It is written in GO, because it like GO :3
+This is a modular version of the lambda-calc project. It is made for the lambda-calc-gui, but should work in any GO-Project. For more information and work in progress features of this project look at the [main](https://github.com/Emi-A-V/lambda-calc/) branch.
 
-### (Planned) Features
-- [x] Simple Number Calculation
-- [x] CLI REPL interface
-- [x] Defining Variables
-- [ ] Simplifying equations (work in progress)
-- [ ] Solving equations
-- [ ] Support for reading and writing LaTeX
-- [ ] More fancy math features
+It is currently not a go package. So if you want to use it, you will need to but the folder into your project.
 
-## Command Line Interface
-Entering an equation will result in its calculation, if the calculation is solvable.
-```
-2 + 2
--> 4
+## Usage
+
+You can add the lambda-calc-engine into your GO-project and import it.
+
+```go
+import (
+    lambda "lambda-calc-gui/lambda-calc"
+)
 ```
 
-You can define a variable with the `define` keyword:
+To initialize the engine you need to call the `start` function. An initilization parameter that holds all callback functions is passed to the function.
+```go
+func main() {
+    lambda.Start(lambda.InitilizationParameters{
+        func(lambda.Variable) {} // Callback, when variables are defined.
+        func(lambda.Variable) {} // Callback, when variables are dropped.
+    })
+}
 ```
-define x = 5 * 2 + 3
--> Variable defined.
+
+The Variable struct passed into these callback function holds information about the variable like its name and its value.
+```go 
+type Variable struct {
+	Name     string
+	Equation string
+}
 ```
-The variable can afterwards be used like a number:
-```
-2 + x
--> 15
+To now calculate the result of an equation you need to call the `Input` function. The function returns the result of type string and an error. The error contains the whether and error was produced, the error message and an error code.
+```go
+func main() {
+    str := "2 + 2"
+
+    res, err := lambda.Input(str)
+    if err.IsError {
+        fmt.Printf("Recieved Error: %s", err.Message)
+    } else {
+        fmt.Printf("Recieved Result: %s", res)
+    }
+}
 ```
 
 ## Config-File

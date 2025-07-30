@@ -1,6 +1,6 @@
 package lambdaengine
 
-var mathErrors = map[string]Return{
+var mathErrors = map[string]Error{
 	// Math
 	"incomplete define statement": {"Unable to define variable, incomplete define statement.", true, 100},
 	"variable recursion":          {"Unable to define variable, recursive variable assignment.", true, 101},

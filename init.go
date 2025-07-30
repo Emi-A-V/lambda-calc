@@ -19,16 +19,25 @@ type Config struct {
 var config Config
 
 // Global callback-functions.
-var eventVariableDefinedCallback func(variable Var)
-var eventVariableDroppedCallback func(variable Var)
+var eventVariableDefinedCallback func(variable Variable)
+var eventVariableDroppedCallback func(variable Variable)
 
-// Loading Config
+// Initilization Parameters:
+//
+// "VariableDefinedCallback": Callback function called when a variable is defined, with Variable being the parameter.
+//
+// "VariableDroppedCallback": Callback function called when a variable is dropped, with Variable being the parameter.
+type InitilizationParameters struct {
+	VariableDefinedCallback func(variable Variable)
+	VariableDroppedCallback func(variable Variable)
+}
+
+// Loads the config and initilizes the callback functions.
 func Start(
-	varDefCallback func(variable Var),
-	varDropCallback func(variable Var),
+	initPrm InitilizationParameters,
 ) bool {
-	eventVariableDefinedCallback = varDefCallback
-	eventVariableDroppedCallback = varDropCallback
+	eventVariableDefinedCallback = initPrm.VariableDefinedCallback
+	eventVariableDroppedCallback = initPrm.VariableDroppedCallback
 
 	if _, err := toml.DecodeFile("config/config.toml", &config); err != nil {
 		return false

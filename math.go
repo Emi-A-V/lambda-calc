@@ -36,23 +36,24 @@ type Node struct {
 	associative   []*Node
 }
 
-type Return struct {
-	Str   string
-	Err   bool
-	ErrID int
+type Error struct {
+	Message   string
+	IsError   bool
+	ErrorCode int
 }
 
-type Var struct {
-	Var string
-	Dep []string
-	Equ string
+// The variable struct holds information about a Variable like its name and
+// its underlying equation.
+type Variable struct {
+	Name     string
+	Equation string
 }
 
 var variables map[string]Node = make(map[string]Node)
 
 var variableOccurrence []string
 
-func Input(cmd string) (Return, string) {
+func Input(cmd string) (string, Error) {
 	i := 0
 	str := ""
 
@@ -65,69 +66,69 @@ func Input(cmd string) (Return, string) {
 	switch str {
 	case "define":
 		if i >= len(cmd)-1 {
-			return mathErrors["incomplete define statement"], ""
+			return "", mathErrors["incomplete define statement"]
 		}
 
 		lexed, err := lexer(cmd[i:])
 		if err != nil {
-			return mathErrors[err.Error()], ""
+			return "", mathErrors[err.Error()]
 		}
 
 		if len(lexed) <= 2 {
-			return mathErrors["incomplete define statement"], ""
+			return "", mathErrors["incomplete define statement"]
 		}
 
 		if lexed[0].tokenType == VARIABLE && lexed[1].tokenType == EQUAL {
 
 			if len(variableOccurrence) >= 2 {
 				if slices.Contains(variableOccurrence[1:], variableOccurrence[0]) {
-					return mathErrors["variable recursion"], ""
+					return "", mathErrors["variable recursion"]
 				}
 			}
 
 			node, err := parse(lexed[2:])
 			if err != nil {
-				return mathErrors[err.Error()], ""
+				return "", mathErrors[err.Error()]
 			}
 
 			variables[lexed[0].variable] = node
-			eventVariableDefinedCallback(Var{lexed[0].variable, []string{}, printTree(&node)})
-			return Return{"Variable defined.", false, 201}, ""
+			eventVariableDefinedCallback(Variable{lexed[0].variable, printTree(&node)})
+			return "", Error{"Variable defined.", false, 201}
 		}
-		return mathErrors["incorrect assertion"], ""
+		return "", mathErrors["incorrect assertion"]
 	case "drop":
 		if i >= len(cmd)-1 {
-			return mathErrors["incomplete drop statement"], ""
+			return "", mathErrors["incomplete drop statement"]
 		}
 
 		lexed, err := lexer(cmd[i:])
 		if err != nil {
-			return mathErrors[err.Error()], ""
+			return "", mathErrors[err.Error()]
 		}
 
 		if val, ok := variables[lexed[0].variable]; ok {
-			eventVariableDroppedCallback(Var{lexed[0].variable, []string{}, printTree(&val)})
+			eventVariableDroppedCallback(Variable{lexed[0].variable, printTree(&val)})
 			delete(variables, lexed[0].variable)
-			return Return{"Variable deleted.", false, 202}, ""
+			return "", Error{"Variable deleted.", false, 202}
 		} else {
-			return mathErrors["no variable to drop"], ""
+			return "", mathErrors["no variable to drop"]
 		}
 	case "solve":
 		lexed, err := lexer(cmd)
 		if err != nil {
-			return mathErrors[err.Error()], ""
+			return "", mathErrors[err.Error()]
 		}
 		parsed, err := parse(lexed)
 		if err != nil {
-			return mathErrors[err.Error()], ""
+			return "", mathErrors[err.Error()]
 		}
 
 		solve(&parsed)
 
-		return Return{"", false, 200}, ""
+		return "", Error{"", false, 200}
 	case "list":
 		if len(variables) <= 0 {
-			return Return{"No variables defined yet.", false, 200}, ""
+			return "", Error{"No variables defined yet.", false, 200}
 		}
 
 		str := ""
@@ -137,13 +138,13 @@ func Input(cmd string) (Return, string) {
 			str += printATree(&val)
 			str += "\n"
 		}
-		return Return{"", false, 203}, str
+		return str, Error{"", false, 203}
 	default:
 		num, err := calc(cmd)
 		if err != nil {
-			return mathErrors[err.Error()], num
+			return num, mathErrors[err.Error()]
 		} else {
-			return Return{"", false, 200}, num
+			return num, Error{"", false, 200}
 		}
 	}
 }
