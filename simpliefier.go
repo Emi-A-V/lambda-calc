@@ -51,12 +51,12 @@ var RewindRules = []RewriteRule {
 	simplifyZeroDiv,		// 6
 	simplifyDivSelf,		// 7
 
-	simplifyRefact,
 	simplifyAddCollect,		// 10
 	simplifyMultCollect,	// 12
 	simplifyConstantFold,	// 13
 	simplifyPowZero,		// 8
 	simplifyMultPow,		// 9
+	simplifyRefact,
 }
 
 var SolveRules = []RewriteRule {
@@ -137,6 +137,7 @@ func simplify(node *Node, mode int) (*Node, error) {
 			} 
 			
 			return simplify(newNode, mode)
+			// return newNode, nil
 		} else if err != nil {
 			return nil, err
 		}
@@ -252,14 +253,6 @@ func getMultiple(a, b *Node) (bool, float64) {
 		// Map for checking if a Node already appeared in the other term.
 		alreadySeenB := make(map[*Node]int)
 
-		if config.Options["show_debug_process"] {
-			cfmt.Printf("(simplifier - 237:4 - getMultiple) {{Debug:}}::cyan|bold Searching for factor between: ")
-			printATree(a)
-			cfmt.Printf(" and ")
-			printATree(b)
-			cfmt.Printf(".\n")
-		}
-
 		// Multiply the numbers in term b to the result factor and add all other factors to the alreadySeen map.
 		// We shouldn't be able to see the same factor twice, because previously we simplified all duplicate factors to powers?
 		for _, bVal := range b.associative {
@@ -294,25 +287,11 @@ func getMultiple(a, b *Node) (bool, float64) {
 						// Add it to already seen so it is not checked again later.
 						alreadySeenB[bVal]++
 						found = true
-						if config.Options["show_debug_process"] {
-							cfmt.Printf("(simplifier - 289:6 - getMultiple) {{Debug:}}::cyan|bold Found factor: ")
-							printATree(aVal)
-							cfmt.Printf(" in ")
-							printATree(b)
-							cfmt.Printf("\n")
-						}
 					}
 				}
 			}
 			// If we did not find a value in term b and it is not a number, we do not have a multple of the other term.
 			if !found {
-				if config.Options["show_debug_process"] {
-					cfmt.Printf("(simplifier - 289:6 - getMultiple) {{Debug:}}::cyan|bold Did not find factor: ")
-					printATree(aVal)
-					cfmt.Printf(" in ")
-						printATree(b)
-					cfmt.Printf(".\n")
-				}
 				return false, 0
 			}
 		}
@@ -324,13 +303,6 @@ func getMultiple(a, b *Node) (bool, float64) {
 			}
 			// If we have not seen a factor of term b in a, return false.
 			if alreadySeenB[bVal] < 1 {
-				if config.Options["show_debug_process"] {
-					cfmt.Printf("(simplifier - 287:6 - getMultiple) {{Debug:}}::cyan|bold Did not find factor: ")
-					printATree(bVal)
-					cfmt.Printf(" in ")
-					printATree(a)
-					cfmt.Printf(".\n")
-				}
 				return false, 0
 			}
 		}
@@ -443,7 +415,7 @@ func containSameNodes(a []*Node, b []*Node) bool {
 	
 	for _, x := range a {
 		contains := false
-		for _, y := range a {
+		for _, y := range b {
 
 			// Skip if already used
 			if _, ok := used[y]; ok {
@@ -882,71 +854,127 @@ func simplifyDefact(node *Node) (*Node, bool, error) {
 // abc + a^2cd + ade -> a * (bc + acd + de)
 func simplifyRefact(node *Node) (*Node, bool, error) {
 	if node.operationType == PLUS {
-		if len(node.associative) <= 1 {
+		// If there are less then 2 factors it doesn't matter if we refactor.
+		if len(node.associative) < 2 {
 			return nil, false, nil
 		}
-		factors := &Node{MULTIPLY, 0.0, "", nil, nil, []*Node{}}
 
-		if config.Options["show_debug_process"] {
-			cfmt.Printf("(Simplifier - 872:4 - simplifyRefact) {{Debug:}}::cyan|bold Searching for greatest common factor in: ")
-			printATree(node)
-			cfmt.Printf("\n")
-		}
+		// resultNode := clone(node)
+		changed := false
 
-		val := node.associative[0]
+		// Loop over all addends to search for common factor 
+		// We only search for one factor at a time so the methode terminates after it finds one.
+		for _, val := range node.associative {
+			
+			// Factor in front of the new addition term in the parenthesis.
+			factors := &Node{MULTIPLY, 0.0, "", nil, nil, []*Node{}}
+			
+			// Addition Term inside the parenthesis.
+			rest := &Node{PLUS, 0.0, "", nil, nil, []*Node{}}
+			
+			// Rest of the addition that is not 
+			newAdditionNode:= &Node{PLUS, 0.0, "", nil, nil, []*Node{}}
 
-		if val.operationType != MULTIPLY {
-			if ok, fact := findCommonFactor(val, node.associative); ok {
-				factors.associative = append(factors.associative, fact)
-			}
-		} else {
-			for _, factor := range val.associative {
-				if ok, fact := findCommonFactor(factor, node.associative); ok {
-					factors.associative = append(factors.associative, fact)
+			// If the addend is already a multiplication, search for each factor individually.
+			// Else just search for the common factor.
+			if val.operationType != MULTIPLY {
+
+				// Search for the common factor.
+				if ok, fact, newRest, newAddends := findCommonFactor(val, node.associative); ok {
+
+					// Prevent factoring with itself. i.e. x + y -> x * (1) + y
+					if len(newRest) >= 2 {
+						// Add the common factor into the multiplication term.
+						factors.associative = append(factors.associative, fact)
+
+						// Add the inside of the parenthesis term.
+						rest.associative = append(rest.associative, newRest...)
+
+						// Return the rest of the nodes that did not change by factoring.
+						newAdditionNode.associative= append(newAdditionNode.associative, newAddends...)
+
+						// Tell the program that a change in the term is required.
+						changed = true
+					}
+				}
+			} else {
+				// Keep track of how the addends were already changed.
+				// (abc, abd, abe) -> (bc, bd, be) -> (c, d, e)
+				addends := node.associative
+
+				// Search for each factor individually.
+				for _, factor := range val.associative {
+
+					// If we found a common factor.
+					if ok, fact, newRest, newAddends := findCommonFactor(factor, addends); ok {
+						if len(newRest) >= 2 {
+							factors.associative = append(factors.associative, fact)
+							rest.associative = append(rest.associative, newRest...)
+							newAdditionNode.associative= append(newAdditionNode.associative, newAddends...)
+							changed = true
+
+							// Set the searchable set to the rest of the addition. 
+							// addends = newAdditionNode.associative
+
+							// Search for a maximum of one factor.
+							break
+						}
+					}
 				}
 			}
-		}
-		if config.Options["show_debug_process"] {
-			cfmt.Printf("    Result Factor: ")
-			printATree(factors)
-			cfmt.Printf("\n")
-		}
-
-		if len(factors.associative) >= 1 {
-			newNode := &Node{PLUS, 0.0, "", nil, nil, []*Node{}}
-			for _, val := range node.associative {
-				newSubNode := &Node{MULTIPLY, 0.0, "", nil, nil, []*Node{}}
+			
+			if len(factors.associative) >= 1 && len(rest.associative) >= 2 && changed {
+				// changed = true			
+				// Devidor for all terms.
+				divisor := &Node{MULTIPLY, 0.0, "", nil, nil, []*Node{}}
 				for _, fact := range factors.associative {
-					newSubNode.associative = append(newSubNode.associative, &Node{POWER, 0.0, "", fact, &Node{NUMBER, -1.0, "", nil, nil, nil}, nil})
+					divisor.associative = append(divisor.associative, &Node{POWER, 0.0, "", fact, &Node{NUMBER, -1.0, "", nil, nil, nil}, nil})
 				}
 
-				if val.operationType == MULTIPLY {
-					newSubNode.associative = append(newSubNode.associative, val.associative...)
-				} else {
-					newSubNode.associative = append(newSubNode.associative, val)
+				// Add the divisor into every term in the parenthesis.
+				for i, val := range rest.associative {
+					currentDivisor := clone(divisor)
+					if val.operationType == MULTIPLY {
+						currentDivisor.associative = append(currentDivisor.associative, val.associative...)
+					} else {
+						currentDivisor.associative = append(currentDivisor.associative, val)
+					}
+					rest.associative[i] = currentDivisor
 				}
-				newNode.associative = append(newNode.associative, newSubNode)
+				factors.associative = append(factors.associative, rest)
+				newAdditionNode.associative = append(newAdditionNode.associative, factors)
+				return newAdditionNode, true, nil
 			}
-			factors.associative = append(factors.associative, newNode)
-			return factors, true, nil
 		}
-		
+		// if changed {
+		//	 return resultNode, true, nil
+		// }
 	}
 	return nil, false, nil
 }
 
-// Check if a given factor appears in all factors. If it does also return resulting rest.
-func findCommonFactor(node *Node, addends []*Node) (bool, *Node) {
+// Check if a given factor appears in all factors. If it does, also return resulting rest.
+func findCommonFactor(node *Node, addends []*Node) (bool, *Node, []*Node, []*Node) {
+	rest := []*Node{}
+	restAddends := []*Node{}
+	changed := false
 	for _, val := range addends {
 		if node.operationType == POWER {
 			return findCommonFactor(node.lNode, addends)
 		}
 
-		if !canFactor(node, val) {
-			return false, nil
+		if canFactor(node, val) {
+			changed = true
+			rest = append(rest, val)
+		} else {
+			restAddends = append(restAddends, val)
 		}
 	}
-	return true, node 
+	if changed {
+		return true, node, rest, restAddends
+	} else {
+		return false, nil, nil, nil
+	}
 }
 
 // Returns the factor of a to make b. (factor, node) -> ok 
