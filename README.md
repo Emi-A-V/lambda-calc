@@ -57,7 +57,7 @@ list
 
 ## Config-File
 
-The config file can be found under `config/config.toml`. The config file defines the behavior of the math engine.
+The config file can be found under `~/.config/lambda-calc/config.toml` (for Linux) or `%APPDATA%/lambda-calc/config.toml` (for Windows). The config file defines the behavior of the math engine.
 
 #### Options
 
