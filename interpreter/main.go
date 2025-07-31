@@ -1,64 +1,65 @@
-package main
+package interpreter
 
 import (
-	"github.com/i582/cfmt/cmd/cfmt"
-	"math"
 	"errors"
+	"lambdacalc/shared"
+	"math"
+
+	"github.com/i582/cfmt/cmd/cfmt"
 )
 
+func Evaluate(node *shared.Node, silent bool) (float64, error) {
+	switch node.OperationType {
+	case shared.NUMBER:
+		return node.Value, nil
 
-func eval(node *Node, silent bool) (float64, error) {
-	switch node.operationType {
-	case NUMBER:
-		return node.value, nil
-
-	case VARIABLE:
-		if val, ok := variables[node.variable]; ok {
-			a, err := eval(&val, silent)
+	case shared.VARIABLE:
+		if val, ok := shared.Variables[node.Variable]; ok {
+			a, err := Evaluate(&val, silent)
 			if err != nil {
 				return 0, err
 			}
 			return a, nil
 		} else {
-			cfmt.Printf("{{Error:}}::red|bold Unable to calculate output, undefined variable '%s'.\n", node.variable)
+			cfmt.Printf("{{Error:}}::red|bold Unable to calculate output, undefined variable '%s'.\n", node.Variable)
 			return 0, errors.New("undefined variable")
 		}
-	case PLUS:
+	case shared.PLUS:
 		a := 0.0
-		for _, val := range node.associative {
-			b, err := eval(val, silent)
+		for _, val := range node.Associative {
+			b, err := Evaluate(val, silent)
 			if err != nil {
 				return 0, err
 			}
 			a = a + b
 		}
 		return a, nil
-	case MINUS:
-		a, err := eval(node.lNode, silent)
+	case shared.MINUS:
+		a, err := Evaluate(node.LNode, silent)
 		if err != nil {
 			return 0, err
 		}
-		b, err := eval(node.rNode, silent)
+		b, err := Evaluate(node.RNode, silent)
 		if err != nil {
 			return 0, err
 		}
 		return a - b, nil
-	case MULTIPLY:
+	case shared.MULTIPLY:
 		a := 1.0
-		for _, val := range node.associative {
-			b, err := eval(val, silent)
+		for _, val := range node.Associative {
+			b, err := Evaluate(val, silent)
 			if err != nil {
 				return 0, err
 			}
 			a = a * b
 		}
 		return a, nil
-	case DIVIDE:
-		a, err := eval(node.lNode, silent)
+	case shared.DIVIDE:
+		a, err := Evaluate(node.LNode, silent)
 		if err != nil {
 			return 0, err
 		}
-		b, err := eval(node.rNode, silent)
+		b, err := Evaluate(node.RNode, silent)
 		if err != nil {
 			return 0, err
 		}
@@ -69,22 +70,22 @@ func eval(node *Node, silent bool) (float64, error) {
 			return 0, errors.New("divide by 0")
 		}
 		return a / b, nil
-	case POWER:
-		a, err := eval(node.lNode, silent)
+	case shared.POWER:
+		a, err := Evaluate(node.LNode, silent)
 		if err != nil {
 			return 0, err
 		}
-		b, err := eval(node.rNode, silent)
+		b, err := Evaluate(node.RNode, silent)
 		if err != nil {
 			return 0, err
 		}
 		return math.Pow(a, b), nil
-	case SQRT:
-		a, err := eval(node.lNode, silent)
+	case shared.SQRT:
+		a, err := Evaluate(node.LNode, silent)
 		if err != nil {
 			return 0, err
 		}
-		b, err := eval(node.rNode, silent)
+		b, err := Evaluate(node.RNode, silent)
 		if err != nil {
 			return 0, err
 		}

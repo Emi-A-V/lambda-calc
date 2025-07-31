@@ -66,6 +66,7 @@ Currently options are only there to debug the program and trace back at what poi
 ```toml
 [options]
 show_debug_process = false
+nerdfont = true
 ```
 
 | Option - _bool_      | Effect                                                                |
@@ -85,9 +86,13 @@ plus = '+'
 minus = '-'
 multiply = '*'
 divide = '/'
-
 sqrt = 'sqrt'
 power = '^'
+
+l_parentheses = "("
+r_parentheses = ")"
+
+equal = "="
 ```
 
 Currently `sqrt` is the only multi-character symbol.
