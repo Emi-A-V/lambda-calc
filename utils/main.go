@@ -2,110 +2,113 @@ package utils
 
 import (
 	"lambdacalc/shared"
-
-	"github.com/i582/cfmt/cmd/cfmt"
+	"strconv"
 )
 
-func PrintATree(node *shared.Node) {
+func PrintATree(node *shared.Node) string {
+	str := ""
 	switch node.OperationType {
 	case shared.NUMBER:
-		cfmt.Print(node.Value)
+		str += strconv.FormatFloat(node.Value, 'f', -1, 64)
 	case shared.VARIABLE:
 		if val, ok := shared.Variables[node.Variable]; ok {
-			PrintATree(&val)
+			str += PrintATree(&val)
 		} else {
-			cfmt.Print(node.Variable)
+			str += node.Variable
 		}
 	case shared.PLUS:
-		cfmt.Print("(")
+		str += "("
 		for i, val := range node.Associative {
-			PrintATree(val)
+			str += PrintATree(val)
 			if i != len(node.Associative)-1 {
-				cfmt.Printf("+")
+				str += "+"
 			}
 		}
-		cfmt.Print(")")
+		str += ")"
 	case shared.MINUS:
-		cfmt.Print("(")
-		PrintATree(node.LNode)
-		cfmt.Print("-")
-		PrintATree(node.RNode)
-		cfmt.Print(")")
+		str += "("
+		str += PrintATree(node.LNode)
+		str += "-"
+		str += PrintATree(node.RNode)
+		str += ")"
 	case shared.MULTIPLY:
-		cfmt.Print("(")
+		str += "("
 		for i, val := range node.Associative {
-			PrintATree(val)
+			str += PrintATree(val)
 			if i != len(node.Associative)-1 {
-				cfmt.Printf("*")
+				str += "*"
 			}
 		}
-		cfmt.Print(")")
+		str += ")"
 	case shared.DIVIDE:
-		cfmt.Print("(")
-		PrintATree(node.LNode)
-		cfmt.Print("/")
-		PrintATree(node.RNode)
-		cfmt.Print(")")
+		str += "("
+		str += PrintATree(node.LNode)
+		str += "/"
+		str += PrintATree(node.RNode)
+		str += ")"
 	case shared.POWER:
-		cfmt.Print("(")
-		PrintATree(node.LNode)
-		cfmt.Print("^")
-		PrintATree(node.RNode)
-		cfmt.Print(")")
+		str += "("
+		str += PrintATree(node.LNode)
+		str += "^"
+		str += PrintATree(node.RNode)
+		str += ")"
 	case shared.SQRT:
-		cfmt.Print("(")
-		PrintATree(node.LNode)
-		cfmt.Print("sq")
-		PrintATree(node.RNode)
-		cfmt.Print(")")
+		str += "("
+		str += PrintATree(node.LNode)
+		str += "sq"
+		str += PrintATree(node.RNode)
+		str += ")"
 	}
+	return str
 }
 
-func PrintTree(node *shared.Node) {
+func PrintTree(node *shared.Node) string {
+	str := ""
 	switch node.OperationType {
 	case shared.NUMBER:
-		cfmt.Print(node.Value)
+		str += strconv.FormatFloat(node.Value, 'f', -1, 64)
 	case shared.VARIABLE:
 		if val, ok := shared.Variables[node.Variable]; ok {
-			PrintTree(&val)
+			str += PrintTree(&val)
 		} else {
-			cfmt.Print(node.Variable)
+			str += node.Variable
 		}
 	case shared.PLUS:
-		cfmt.Print("(")
-		PrintTree(node.LNode)
-		cfmt.Print("+")
-		PrintTree(node.RNode)
-		cfmt.Print(")")
+		str += "("
+		str += PrintTree(node.LNode)
+		str += "+"
+		str += PrintTree(node.RNode)
+		str += ")"
 	case shared.MINUS:
-		cfmt.Print("(")
-		PrintTree(node.LNode)
-		cfmt.Print("-")
-		PrintTree(node.RNode)
-		cfmt.Print(")")
+		str += "("
+		str += PrintTree(node.LNode)
+		str += "-"
+		str += PrintTree(node.RNode)
+		str += ")"
 	case shared.MULTIPLY:
-		cfmt.Print("(")
-		PrintTree(node.LNode)
-		cfmt.Print("*")
-		PrintTree(node.RNode)
-		cfmt.Print(")")
+		str += "("
+		str += PrintTree(node.LNode)
+		str += "*"
+		str += PrintTree(node.RNode)
+		str += ")"
 	case shared.DIVIDE:
-		cfmt.Print("(")
-		PrintTree(node.LNode)
-		cfmt.Print("/")
-		PrintTree(node.RNode)
-		cfmt.Print(")")
+		str += "("
+		str += PrintTree(node.LNode)
+		str += "/"
+		str += PrintTree(node.RNode)
+		str += ")"
 	case shared.POWER:
-		cfmt.Print("(")
-		PrintTree(node.LNode)
-		cfmt.Print("^")
-		PrintTree(node.RNode)
-		cfmt.Print(")")
+		str += "("
+		str += PrintTree(node.LNode)
+		str += "^"
+		str += PrintTree(node.RNode)
+		str += ")"
 	case shared.SQRT:
-		cfmt.Print("(")
-		PrintTree(node.LNode)
-		cfmt.Print("sq")
-		PrintTree(node.RNode)
-		cfmt.Print(")")
+		str += "("
+		str += PrintTree(node.LNode)
+		str += "sq"
+		str += PrintTree(node.RNode)
+		str += ")"
 	}
+	return str
 }

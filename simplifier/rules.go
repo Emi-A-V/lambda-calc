@@ -184,9 +184,9 @@ func simplifyAddCollect(n *shared.Node) (*shared.Node, bool, error) {
 					if ok, fact := getMultiple(val, node.Associative[y]); ok {
 						if shared.Conf.Options["show_debug_process"] {
 							cfmt.Printf("(Simplifier - 648:8 - simplifyAddCollect) {{Debug:}}::cyan|bold Found factor in addends: ")
-							utils.PrintATree(val)
+							cfmt.Printf("%s", utils.PrintATree(val))
 							cfmt.Printf(" / ")
-							utils.PrintATree(node.Associative[y])
+							cfmt.Printf("%s", utils.PrintATree(node.Associative[y]))
 							cfmt.Printf(" = ")
 							cfmt.Printf("%v\n", fact)
 						}

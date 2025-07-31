@@ -266,21 +266,21 @@ func multiplyNodes(x *shared.Node, y *shared.Node) *shared.Node {
 
 	if shared.Conf.Options["show_debug_process"] {
 		cfmt.Printf("(Simplifier - 275:6 - multiplyNodes) {{Debug:}}::cyan|bold Multiplying ")
-		utils.PrintATree(x)
+		cfmt.Printf("%s", utils.PrintATree(x))
 		cfmt.Printf(" and ")
-		utils.PrintATree(y)
+		cfmt.Printf("%s", utils.PrintATree(y))
 		cfmt.Printf(" to ")
 	}
 
 	if x.OperationType == shared.NUMBER && x.Value == 1 {
 		if shared.Conf.Options["show_debug_process"] {
-			utils.PrintATree(y)
+			cfmt.Printf("%s", utils.PrintATree(y))
 			cfmt.Printf("\n")
 		}
 		return y
 	} else if y.OperationType == shared.NUMBER && y.Value == 1 {
 		if shared.Conf.Options["show_debug_process"] {
-			utils.PrintATree(x)
+			cfmt.Printf("%s", utils.PrintATree(x))
 			cfmt.Printf("\n")
 		}
 		return x
@@ -367,7 +367,7 @@ func multiplyNodes(x *shared.Node, y *shared.Node) *shared.Node {
 		}
 	}
 	if shared.Conf.Options["show_debug_process"] {
-		utils.PrintATree(res)
+		cfmt.Printf("%s", utils.PrintATree(res))
 		cfmt.Printf("\n")
 	}
 	return res

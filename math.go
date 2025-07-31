@@ -144,7 +144,7 @@ func calc(cmd string) (float64, error) {
 	// Debug
 	if shared.Conf.Options["show_debug_process"] {
 		cfmt.Printf("{{Debug:}}::cyan|bold atr result: ")
-		utils.PrintATree(atred)
+		cfmt.Printf("%s", utils.PrintATree(atred))
 		cfmt.Println("")
 	}
 
@@ -156,7 +156,7 @@ func calc(cmd string) (float64, error) {
 	// Debug
 	if shared.Conf.Options["show_debug_process"] {
 		cfmt.Printf("{{Debug:}}::cyan|bold Unwound result: ")
-		utils.PrintATree(unwound)
+		cfmt.Printf("%s", utils.PrintATree(unwound))
 		cfmt.Println("")
 	}
 
@@ -168,7 +168,7 @@ func calc(cmd string) (float64, error) {
 	// Debug
 	if shared.Conf.Options["show_debug_process"] {
 		cfmt.Printf("{{Debug:}}::cyan|bold Rewound result: ")
-		utils.PrintATree(rewound)
+		cfmt.Printf("%s", utils.PrintATree(rewound))
 		cfmt.Println("")
 	}
 

@@ -52,9 +52,9 @@ func Simplify(node *shared.Node, mode int) (*shared.Node, error) {
 			// Debug
 			if shared.Conf.Options["show_debug_process"] {
 				cfmt.Printf("{{Notice:}}::blue|bold matched rule pattern %v, changed: ", i)
-				utils.PrintATree(node)
+				cfmt.Printf("%s", utils.PrintATree(node))
 				cfmt.Printf(" to ")
-				utils.PrintATree(newNode)
+				cfmt.Printf("%s", utils.PrintATree(newNode))
 				cfmt.Println("")
 			}
 

@@ -138,7 +138,7 @@ func LexTokens(input string) ([]shared.Token, error) {
 						if shared.Conf.Options["show_debug_process"] {
 							if val, ok := shared.Variables[string(str[j])]; ok {
 								cfmt.Printf("{{Notice:}}::blue|bold found defined variable %s with value: ", string(str[j]))
-								utils.PrintATree(&val)
+								cfmt.Printf("%s", utils.PrintATree(&val))
 								cfmt.Printf(".\n")
 							} else {
 								cfmt.Printf("{{Notice:}}::blue|bold found undefined variable %s.\n", string(str[j]))
