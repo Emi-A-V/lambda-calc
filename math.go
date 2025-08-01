@@ -12,7 +12,6 @@ import (
 	"lambdacalc/treerebuilder"
 
 	"errors"
-	"slices"
 	"strconv"
 	"unicode"
 
@@ -23,7 +22,7 @@ func read(cmd string) (string, error) {
 	i := 0
 	str := ""
 
-	VariableOccurrence := []string{}
+	// VariableOccurrence := []string{}
 
 	for i < len(cmd) && unicode.IsLetter(rune(cmd[i])) {
 		str += string(cmd[i])
@@ -46,26 +45,39 @@ func read(cmd string) (string, error) {
 			return "", errors.New("incomplete define statement")
 		}
 
-		if lexed[0].TokenType == shared.VARIABLE && lexed[1].TokenType == shared.EQUAL {
+		parsed, err := parser.Parse(lexed)
+		if err != nil {
+			return "", err
+		}
 
-			if len(VariableOccurrence) >= 2 {
-				if slices.Contains(VariableOccurrence[1:], VariableOccurrence[0]) {
-					cfmt.Printf("%v", VariableOccurrence[1:])
-					cfmt.Printf("{{Error:}}::bold|red Unable to define variable, recursive variable assignment.\n")
-					return "", errors.New("variable recursion")
+		// Check if all parameters are variables.
+		if parsed.OperationType == shared.EQUAL && parsed.LNode.OperationType == shared.FUNCTION {
+			for _, val := range parsed.LNode.Associative {
+				if val.OperationType != shared.VARIABLE {
+					cfmt.Printf("{{Error:}}::bold|red Unable to define function, functions can only be declared with variables as parameters.\n")
+					return "", errors.New("unallowed operation in function declaration")
 				}
 			}
-
-			node, err := parser.Parse(lexed[2:])
-			if err != nil {
-				return "", err
-			}
-
-			shared.Variables[lexed[0].Variable] = node
-			return "Variable defined.", nil
 		}
-		cfmt.Printf("{{Error:}}::bold|red Unable to define variable, incorrect assertion statement.\n")
-		return "", errors.New("incorrect assertion")
+		atr := treerebuilder.AssociativeTreeRebuild(&parsed)
+		simplified, err := simplifier.Simplify(atr, simplifier.UNWIND)
+		if err != nil {
+			return "", err
+		}
+
+		if parsed.OperationType == shared.EQUAL && parsed.LNode.OperationType == shared.VARIABLE {
+			shared.Variables[lexed[0].Variable] = *simplified.RNode
+			return "Variable defined.", nil
+		} else if parsed.OperationType == shared.EQUAL && parsed.LNode.OperationType == shared.FUNCTION {
+			shared.Functions[lexed[0].Variable] = shared.Function{
+				Parameters: simplified.LNode.Associative,
+				Equation:   simplified.RNode,
+			}
+			return "Function defined.", nil
+		} else {
+			cfmt.Printf("{{Error:}}::bold|red Unable to define variable or function, incorrect assertion statement.\n")
+			return "", errors.New("incorrect assertion")
+		}
 	case "drop":
 		if i >= len(cmd)-1 {
 			cfmt.Printf("{{Error:}}::bold|red Unable to drop variable, incomplete drop statement.\n")
@@ -79,6 +91,9 @@ func read(cmd string) (string, error) {
 
 		if _, ok := shared.Variables[lexed[0].Variable]; ok {
 			delete(shared.Variables, lexed[0].Variable)
+			return "Variable deleted.", nil
+		} else if _, ok := shared.Functions[lexed[0].Variable]; ok {
+			delete(shared.Functions, lexed[0].Variable)
 			return "Variable deleted.", nil
 		} else {
 			cfmt.Printf("{{Error:}}::bold|red Unable to drop variable, the variable you are trying to drop does not exist in the current context.\n")

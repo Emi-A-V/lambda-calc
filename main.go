@@ -67,6 +67,13 @@ func loadConfig() error {
 		return nil
 	}
 
+	if shared.Conf.Version != shared.GetDefualtConfig().Version {
+		cfmt.Printf("{{Error:}}::red|bold Config file out of date.\n")
+		if err := createConfig(path); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

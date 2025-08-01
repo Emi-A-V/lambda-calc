@@ -14,20 +14,52 @@ type parser struct {
 
 func Parse(tokens []shared.Token) (shared.Node, error) {
 	parser := parser{tokens, 0}
-	node, err := parser.expr()
+	node, err := parser.assertion()
 	if err != nil {
 		return shared.Node{}, err
 	}
 	return node, nil
 }
 
-func (p *parser) expr() (shared.Node, error) {
+func (p *parser) assertion() (shared.Node, error) {
+	result, err := p.expression()
+	if err != nil {
+		return shared.Node{}, err
+	}
+	if p.currentIndex < len(p.tokens) {
+		if p.tokens[p.currentIndex].TokenType == shared.EQUAL {
+			p.currentIndex++
+			a, err := p.expression()
+			if err != nil {
+				return shared.Node{}, err
+			}
+			c := result
+
+			result = shared.Node{
+				OperationType: shared.EQUAL,
+				Value:         0,
+				Variable:      "",
+				LNode:         &c,
+				RNode:         &a,
+				Associative:   nil,
+			}
+		}
+	}
+	if p.currentIndex < len(p.tokens) {
+		cfmt.Printf("{{Error:}}::bold|red Assertion statement is longer than expected.\n")
+	}
+	return result, nil
+}
+
+// Finds expressions of lowest associativity -> a + b | b - a
+func (p *parser) expression() (shared.Node, error) {
 	result, err := p.term()
 	if err != nil {
 		return shared.Node{}, err
 	}
 	for p.currentIndex < len(p.tokens) {
-		if p.tokens[p.currentIndex].TokenType == shared.PLUS {
+		switch p.tokens[p.currentIndex].TokenType {
+		case shared.PLUS:
 			p.currentIndex += 1
 			a, err := p.term()
 			if err != nil {
@@ -42,7 +74,7 @@ func (p *parser) expr() (shared.Node, error) {
 				RNode:         &a,
 				Associative:   nil,
 			}
-		} else if p.tokens[p.currentIndex].TokenType == shared.MINUS {
+		case shared.MINUS:
 			p.currentIndex += 1
 			a, err := p.term()
 			if err != nil {
@@ -57,20 +89,22 @@ func (p *parser) expr() (shared.Node, error) {
 				RNode:         &a,
 				Associative:   nil,
 			}
-		} else {
-			break
+		default:
+			return result, nil
 		}
 	}
 	return result, nil
 }
 
+// Finds expressions of middle associativity -> a * b | b / a
 func (p *parser) term() (shared.Node, error) {
 	result, err := p.factor()
 	if err != nil {
 		return shared.Node{}, err
 	}
 	for p.currentIndex < len(p.tokens) {
-		if p.tokens[p.currentIndex].TokenType == shared.MULTIPLY {
+		switch p.tokens[p.currentIndex].TokenType {
+		case shared.MULTIPLY:
 			p.currentIndex += 1
 			a, err := p.factor()
 			if err != nil {
@@ -85,7 +119,7 @@ func (p *parser) term() (shared.Node, error) {
 				RNode:         &a,
 				Associative:   nil,
 			}
-		} else if p.tokens[p.currentIndex].TokenType == shared.DIVIDE {
+		case shared.DIVIDE:
 			p.currentIndex += 1
 			a, err := p.factor()
 			if err != nil {
@@ -101,7 +135,7 @@ func (p *parser) term() (shared.Node, error) {
 				Associative:   nil,
 			}
 
-		} else if p.tokens[p.currentIndex].TokenType == shared.VARIABLE {
+		case shared.VARIABLE:
 			c := result
 			result = shared.Node{
 				OperationType: shared.MULTIPLY,
@@ -119,13 +153,14 @@ func (p *parser) term() (shared.Node, error) {
 				Associative: nil,
 			}
 			p.currentIndex += 1
-		} else {
-			break
+		default:
+			return result, nil
 		}
 	}
 	return result, nil
 }
 
+// Finds expressions of highest associativity -> a ^ b
 func (p *parser) factor() (shared.Node, error) {
 	result, err := p.num()
 	if err != nil {
@@ -155,6 +190,7 @@ func (p *parser) factor() (shared.Node, error) {
 	return result, nil
 }
 
+// Finds expressions of literal type or parenthesis.
 func (p *parser) num() (shared.Node, error) {
 	if p.currentIndex >= len(p.tokens) {
 		cfmt.Println("{{Error:}}::red|bold unable to parse tokens, expecting another token.")
@@ -175,18 +211,56 @@ func (p *parser) num() (shared.Node, error) {
 		p.currentIndex += 1
 		return a, nil
 	case shared.VARIABLE:
+		varName := p.tokens[p.currentIndex].Variable
+		p.currentIndex += 1
+
+		if p.currentIndex >= len(p.tokens) {
+			// Cannot be a function. Return variable.
+			return shared.Node{
+				OperationType: shared.VARIABLE,
+				Value:         0.0,
+				Variable:      varName,
+				LNode:         nil,
+				RNode:         nil,
+				Associative:   nil,
+			}, nil
+		} else if p.tokens[p.currentIndex].TokenType != shared.LPARENTHESES {
+			// Cannot be a function. Return variable.
+			return shared.Node{
+				OperationType: shared.VARIABLE,
+				Value:         0.0,
+				Variable:      varName,
+				LNode:         nil,
+				RNode:         nil,
+				Associative:   nil,
+			}, nil
+		}
+		p.currentIndex += 1
+
+		// Get expression inside the root
+		prmt, err := p.parameter()
+		if err != nil {
+			return shared.Node{}, err
+		}
+
+		// Check for closing parentheses
+		if p.currentIndex >= len(p.tokens) || p.tokens[p.currentIndex].TokenType != shared.RPARENTHESES {
+			cfmt.Println("{{Error:}}::red|bold unable to parse tokens, missing closing parentheses")
+			return shared.Node{}, errors.New("unclosed parentheses")
+		}
+
 		p.currentIndex += 1
 		return shared.Node{
-			OperationType: shared.VARIABLE,
+			OperationType: shared.FUNCTION,
 			Value:         0.0,
-			Variable:      p.tokens[p.currentIndex-1].Variable,
+			Variable:      varName,
 			LNode:         nil,
 			RNode:         nil,
-			Associative:   nil,
+			Associative:   prmt,
 		}, nil
 	case shared.LPARENTHESES:
 		p.currentIndex += 1
-		a, err := p.expr()
+		a, err := p.expression()
 		if err != nil {
 			return shared.Node{}, err
 		} else if p.currentIndex >= len(p.tokens) || p.tokens[p.currentIndex].TokenType != shared.RPARENTHESES {
@@ -229,7 +303,7 @@ func (p *parser) num() (shared.Node, error) {
 		p.currentIndex += 1
 
 		// Get expression inside the root
-		b, err := p.expr()
+		b, err := p.expression()
 		if err != nil {
 			return shared.Node{}, err
 		}
@@ -295,4 +369,21 @@ func (p *parser) num() (shared.Node, error) {
 	}
 	cfmt.Println("{{Error:}}::red|bold Unable to parse expression, unexpected token.")
 	return shared.Node{}, errors.New("unexpected token")
+}
+
+func (p *parser) parameter() ([]*shared.Node, error) {
+	parameters := []*shared.Node{}
+	for {
+		expr, err := p.expression()
+		if err != nil {
+			return []*shared.Node{}, err
+		}
+		parameters = append(parameters, &expr)
+		if p.tokens[p.currentIndex].TokenType == shared.COMMA {
+			p.currentIndex++
+		} else {
+			break
+		}
+	}
+	return parameters, nil
 }

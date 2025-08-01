@@ -58,6 +58,18 @@ func PrintATree(node *shared.Node) string {
 		str += "sq"
 		str += PrintATree(node.RNode)
 		str += ")"
+	case shared.COMMA:
+		str += ","
+	case shared.FUNCTION:
+		str += node.Variable
+		str += "("
+		for i, val := range node.Associative {
+			str += PrintATree(val)
+			if i != len(node.Associative)-1 {
+				str += ", "
+			}
+		}
+		str += ")"
 	}
 	return str
 }
@@ -108,6 +120,18 @@ func PrintTree(node *shared.Node) string {
 		str += PrintTree(node.LNode)
 		str += "sq"
 		str += PrintTree(node.RNode)
+		str += ")"
+	case shared.COMMA:
+		str += ","
+	case shared.FUNCTION:
+		str += node.Variable
+		str += "("
+		for i, val := range node.Associative {
+			str += PrintTree(val)
+			if i != len(node.Associative)-1 {
+				str += ", "
+			}
+		}
 		str += ")"
 	}
 	return str

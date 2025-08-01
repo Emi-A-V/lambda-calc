@@ -1,5 +1,12 @@
 package shared
 
+type Config struct {
+	Version   string
+	Options   map[string]bool
+	Symbols   map[string]string
+	Constants map[string]float64
+}
+
 type Token struct {
 	TokenType int
 	Value     float64
@@ -15,8 +22,7 @@ type Node struct {
 	Associative   []*Node
 }
 
-type Config struct {
-	Options   map[string]bool
-	Symbols   map[string]string
-	Constants map[string]float64
+type Function struct {
+	Parameters []*Node
+	Equation   *Node
 }

@@ -1,6 +1,8 @@
 package treerebuilder
 
-import "lambdacalc/shared"
+import (
+	"lambdacalc/shared"
+)
 
 // The Associative Tree Rebuilder rebuilds the tree so that associative rules are followed,
 // i.e.: a + b + c = c + b + a
@@ -11,6 +13,19 @@ func AssociativeTreeRebuild(node *shared.Node) *shared.Node {
 	switch node.OperationType {
 	case shared.NUMBER, shared.VARIABLE:
 		return node
+	case shared.FUNCTION:
+		result := []*shared.Node{}
+		for _, val := range node.Associative {
+			result = append(result, AssociativeTreeRebuild(val))
+		}
+		return &shared.Node{
+			OperationType: shared.FUNCTION,
+			Value:         0.0,
+			Variable:      node.Variable,
+			LNode:         nil,
+			RNode:         nil,
+			Associative:   result,
+		}
 	case shared.MINUS, shared.PLUS, shared.MULTIPLY, shared.DIVIDE:
 		var result []*shared.Node
 		var walk func(n *shared.Node)

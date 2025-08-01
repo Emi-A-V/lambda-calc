@@ -79,6 +79,14 @@ func LexTokens(input string) ([]shared.Token, error) {
 			}
 			tokens = append(tokens, token)
 			i += 1
+		case []rune(shared.Conf.Symbols["parameter_split"])[0]:
+			token := shared.Token{
+				TokenType: shared.COMMA,
+				Value:     0.0,
+				Variable:  "",
+			}
+			tokens = append(tokens, token)
+			i += 1
 		default:
 			// Decode Numbers
 			if unicode.IsNumber(rune(input[i])) || rune(input[i]) == []rune(shared.Conf.Symbols["decimal_split"])[0] {
@@ -110,7 +118,7 @@ func LexTokens(input string) ([]shared.Token, error) {
 				// Skip empty space
 				i += 1
 			} else if unicode.IsLetter(rune(input[i])) {
-				// Search for constants or shared.Variables
+				// Search for constants or variables
 				str := ""
 
 				for i < len(input) && unicode.IsLetter(rune(input[i])) {
@@ -132,6 +140,7 @@ func LexTokens(input string) ([]shared.Token, error) {
 						Variable:  "",
 					})
 				} else {
+					// Its neither a constant or a sqrt than break the string into single variables.
 					j := 0
 					for j < len(str) {
 						// Debug
@@ -144,7 +153,6 @@ func LexTokens(input string) ([]shared.Token, error) {
 								cfmt.Printf("{{Notice:}}::blue|bold found undefined variable %s.\n", string(str[j]))
 							}
 						}
-						shared.VariableOccurrence = append(shared.VariableOccurrence, string(str[j]))
 						tokens = append(tokens, shared.Token{
 							TokenType: shared.VARIABLE,
 							Value:     0.0,
@@ -152,9 +160,6 @@ func LexTokens(input string) ([]shared.Token, error) {
 						})
 						j += 1
 					}
-					// if i >= len(input) {
-					// 	i -= 1
-					// }
 				}
 			} else {
 				cfmt.Printf("{{Error:}}::red|bold Unable to parse symbol at %s, unregocnized character.\n", string(input[i]))

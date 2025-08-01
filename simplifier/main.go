@@ -15,7 +15,7 @@ func Simplify(node *shared.Node, mode int) (*shared.Node, error) {
 
 	var err error
 	switch node.OperationType {
-	case shared.MULTIPLY, shared.PLUS:
+	case shared.MULTIPLY, shared.PLUS, shared.FUNCTION:
 		for i := 0; i < len(node.Associative); i++ {
 			val := node.Associative[i]
 			simp := &shared.Node{}

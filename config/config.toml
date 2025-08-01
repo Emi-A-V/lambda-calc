@@ -1,9 +1,13 @@
+version = "0.1.5"
+
 [options]
 nerdfont = true
 show_debug_process = true
 
 [symbols] 
 decimal_split = "."
+parameter_split = ","
+
 plus = "+"
 minus = "-"
 multiply = "*"
