@@ -2,7 +2,6 @@ package simplifier
 
 import (
 	"lambdacalc/shared"
-	"lambdacalc/utils"
 
 	"github.com/i582/cfmt/cmd/cfmt"
 )
@@ -52,9 +51,9 @@ func Simplify(node *shared.Node, mode int) (*shared.Node, error) {
 			// Debug
 			if shared.Conf.Options["show_debug_process"] {
 				cfmt.Printf("{{Notice:}}::blue|bold matched rule pattern %v, changed: ", i)
-				cfmt.Printf("%s", utils.PrintATree(node))
+				cfmt.Printf("%s", shared.PrintATree(node))
 				cfmt.Printf(" to ")
-				cfmt.Printf("%s", utils.PrintATree(newNode))
+				cfmt.Printf("%s", shared.PrintATree(newNode))
 				cfmt.Println("")
 			}
 

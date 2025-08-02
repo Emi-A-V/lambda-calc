@@ -2,7 +2,6 @@ package main
 
 import (
 	"lambdacalc/shared"
-	"lambdacalc/utils"
 
 	"lambdacalc/interpreter"
 	"lambdacalc/lexer"
@@ -121,7 +120,7 @@ func read(cmd string) (string, error) {
 		for key, val := range shared.Variables {
 			cfmt.Println("")
 			cfmt.Printf("'%s' : ", key)
-			utils.PrintTree(&val)
+			shared.PrintTree(&val)
 		}
 		cfmt.Println("")
 		return "", nil
@@ -151,7 +150,7 @@ func calc(cmd string) (float64, error) {
 	// Debug
 	if shared.Conf.Options["show_debug_process"] {
 		cfmt.Printf("{{Debug:}}::cyan|bold parse result: ")
-		utils.PrintTree(&parsed)
+		shared.PrintTree(&parsed)
 		cfmt.Println("")
 	}
 
@@ -159,7 +158,7 @@ func calc(cmd string) (float64, error) {
 	// Debug
 	if shared.Conf.Options["show_debug_process"] {
 		cfmt.Printf("{{Debug:}}::cyan|bold atr result: ")
-		cfmt.Printf("%s", utils.PrintATree(atred))
+		cfmt.Printf("%s", shared.PrintATree(atred))
 		cfmt.Println("")
 	}
 
@@ -171,7 +170,7 @@ func calc(cmd string) (float64, error) {
 	// Debug
 	if shared.Conf.Options["show_debug_process"] {
 		cfmt.Printf("{{Debug:}}::cyan|bold Unwound result: ")
-		cfmt.Printf("%s", utils.PrintATree(unwound))
+		cfmt.Printf("%s", shared.PrintATree(unwound))
 		cfmt.Println("")
 	}
 
@@ -183,7 +182,7 @@ func calc(cmd string) (float64, error) {
 	// Debug
 	if shared.Conf.Options["show_debug_process"] {
 		cfmt.Printf("{{Debug:}}::cyan|bold Rewound result: ")
-		cfmt.Printf("%s", utils.PrintATree(rewound))
+		cfmt.Printf("%s", shared.PrintATree(rewound))
 		cfmt.Println("")
 	}
 

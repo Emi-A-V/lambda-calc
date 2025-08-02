@@ -4,7 +4,6 @@ import (
 	"errors"
 	"lambdacalc/interpreter"
 	"lambdacalc/shared"
-	"lambdacalc/utils"
 	"slices"
 
 	"github.com/i582/cfmt/cmd/cfmt"
@@ -78,7 +77,7 @@ func simplifyMultOne(node *shared.Node) (*shared.Node, bool, error) {
 func simplifyDivOne(node *shared.Node) (*shared.Node, bool, error) {
 	if node.OperationType == shared.DIVIDE {
 		if isNumber(node.RNode) && node.RNode.Value == 1 {
-			return clone(node.LNode), true, nil
+			return shared.Clone(node.LNode), true, nil
 		}
 	}
 	return nil, false, nil
@@ -110,7 +109,7 @@ func simplifyZeroDiv(node *shared.Node) (*shared.Node, bool, error) {
 // x / x = 1
 func simplifyDivSelf(node *shared.Node) (*shared.Node, bool, error) {
 	if node.OperationType == shared.DIVIDE {
-		if isEqual(node.RNode, node.LNode) {
+		if shared.IsEqual(node.RNode, node.LNode) {
 			return &shared.Node{
 				OperationType: shared.NUMBER,
 				Value:         1.0,
@@ -139,7 +138,7 @@ func simplifySingleAdd(node *shared.Node) (*shared.Node, bool, error) {
 // 2 + 4 + a + b + a = 6 + 2a + b
 func simplifyAddCollect(n *shared.Node) (*shared.Node, bool, error) {
 	if n.OperationType == shared.PLUS {
-		node := clone(n)
+		node := shared.Clone(n)
 		changed := false
 
 		nNumOp := 0
@@ -175,7 +174,7 @@ func simplifyAddCollect(n *shared.Node) (*shared.Node, bool, error) {
 				}
 			case shared.MULTIPLY:
 				num := 1.0
-				newVal := clone(val)
+				newVal := shared.Clone(val)
 
 				// Knowing that if we found a previous multiple of this term, it should already be simplified.
 				// Searching for next multiple of the current term.
@@ -184,9 +183,9 @@ func simplifyAddCollect(n *shared.Node) (*shared.Node, bool, error) {
 					if ok, fact := getMultiple(val, node.Associative[y]); ok {
 						if shared.Conf.Options["show_debug_process"] {
 							cfmt.Printf("(Simplifier - 648:8 - simplifyAddCollect) {{Debug:}}::cyan|bold Found factor in addends: ")
-							cfmt.Printf("%s", utils.PrintATree(val))
+							cfmt.Printf("%s", shared.PrintATree(val))
 							cfmt.Printf(" / ")
-							cfmt.Printf("%s", utils.PrintATree(node.Associative[y]))
+							cfmt.Printf("%s", shared.PrintATree(node.Associative[y]))
 							cfmt.Printf(" = ")
 							cfmt.Printf("%v\n", fact)
 						}
@@ -278,7 +277,7 @@ func simplifyAddCollect(n *shared.Node) (*shared.Node, bool, error) {
 // a * a * b * 2 * 5 = 10 * b * a^2
 func simplifyMultCollect(n *shared.Node) (*shared.Node, bool, error) {
 	if n.OperationType == shared.MULTIPLY {
-		node := clone(n)
+		node := shared.Clone(n)
 		changed := false
 
 		nNumOp := 0
@@ -443,7 +442,7 @@ func simplifyRefact(node *shared.Node) (*shared.Node, bool, error) {
 			return nil, false, nil
 		}
 
-		// resultshared.Node := clone(node)
+		// resultshared.Node := shared.Clone(node)
 		changed := false
 
 		// Loop over all addends to search for common factor
@@ -559,7 +558,7 @@ func simplifyRefact(node *shared.Node) (*shared.Node, bool, error) {
 
 				// Add the divisor into every term in the parenthesis.
 				for i, val := range rest.Associative {
-					currentDivisor := clone(divisor)
+					currentDivisor := shared.Clone(divisor)
 					if val.OperationType == shared.MULTIPLY {
 						currentDivisor.Associative = append(currentDivisor.Associative, val.Associative...)
 					} else {
@@ -611,7 +610,7 @@ func canFactor(a, b *shared.Node) bool {
 	case shared.NUMBER:
 		return a.OperationType == shared.NUMBER
 	case shared.VARIABLE:
-		return isEqual(a, b)
+		return shared.IsEqual(a, b)
 	case shared.MINUS:
 		return canFactor(a, b.RNode)
 	case shared.MULTIPLY:
@@ -623,7 +622,7 @@ func canFactor(a, b *shared.Node) bool {
 	case shared.POWER:
 		return canFactor(a, b.LNode)
 	default:
-		return isEqual(a, b)
+		return shared.IsEqual(a, b)
 	}
 	return false
 }
@@ -649,7 +648,7 @@ func simplifyPowZero(node *shared.Node) (*shared.Node, bool, error) {
 // Currently Unfunctional
 func simplifyPowSelf(node *shared.Node) (*shared.Node, bool, error) {
 	if node.OperationType == shared.MULTIPLY {
-		if isEqual(node.RNode, node.LNode) {
+		if shared.IsEqual(node.RNode, node.LNode) {
 			return &shared.Node{
 				OperationType: shared.POWER,
 				Value:         0.0,
@@ -675,7 +674,7 @@ func simplifyPowSelf(node *shared.Node) (*shared.Node, bool, error) {
 func simplifyAddPow(node *shared.Node) (*shared.Node, bool, error) {
 	if node.OperationType == shared.MULTIPLY || node.OperationType == shared.DIVIDE {
 		if node.LNode.OperationType == shared.POWER && node.RNode.OperationType == shared.POWER {
-			if isEqual(node.LNode.LNode, node.RNode.LNode) {
+			if shared.IsEqual(node.LNode.LNode, node.RNode.LNode) {
 				var op *shared.Node
 				if node.OperationType == shared.MULTIPLY {
 					op = &shared.Node{
@@ -739,13 +738,13 @@ func simplifyMultPow(node *shared.Node) (*shared.Node, bool, error) {
 func simplifyMultFact(node *shared.Node) (*shared.Node, bool, error) {
 	if node.OperationType == shared.PLUS || node.OperationType == shared.MINUS {
 		if node.LNode.OperationType == shared.MULTIPLY && node.RNode.OperationType == shared.MULTIPLY {
-			if isEqual(node.LNode.LNode, node.RNode.LNode) {
+			if shared.IsEqual(node.LNode.LNode, node.RNode.LNode) {
 				op := shared.Node{
 					OperationType: node.OperationType,
 					Value:         0.0,
 					Variable:      "",
-					LNode:         clone(node.LNode.RNode),
-					RNode:         clone(node.RNode.RNode),
+					LNode:         shared.Clone(node.LNode.RNode),
+					RNode:         shared.Clone(node.RNode.RNode),
 					Associative:   nil,
 				}
 				return &shared.Node{
@@ -757,13 +756,13 @@ func simplifyMultFact(node *shared.Node) (*shared.Node, bool, error) {
 					Associative:   nil,
 				}, true, nil
 
-			} else if isEqual(node.LNode.LNode, node.RNode.RNode) {
+			} else if shared.IsEqual(node.LNode.LNode, node.RNode.RNode) {
 				op := shared.Node{
 					OperationType: node.OperationType,
 					Value:         0.0,
 					Variable:      "",
-					LNode:         clone(node.LNode.RNode),
-					RNode:         clone(node.RNode.LNode),
+					LNode:         shared.Clone(node.LNode.RNode),
+					RNode:         shared.Clone(node.RNode.LNode),
 					Associative:   nil,
 				}
 				return &shared.Node{
@@ -775,13 +774,13 @@ func simplifyMultFact(node *shared.Node) (*shared.Node, bool, error) {
 					Associative:   nil,
 				}, true, nil
 
-			} else if isEqual(node.LNode.RNode, node.RNode.LNode) {
+			} else if shared.IsEqual(node.LNode.RNode, node.RNode.LNode) {
 				op := shared.Node{
 					OperationType: node.OperationType,
 					Value:         0.0,
 					Variable:      "",
-					LNode:         clone(node.LNode.LNode),
-					RNode:         clone(node.RNode.RNode),
+					LNode:         shared.Clone(node.LNode.LNode),
+					RNode:         shared.Clone(node.RNode.RNode),
 					Associative:   nil,
 				}
 				return &shared.Node{
@@ -793,13 +792,13 @@ func simplifyMultFact(node *shared.Node) (*shared.Node, bool, error) {
 					Associative:   nil,
 				}, true, nil
 
-			} else if isEqual(node.LNode.RNode, node.RNode.RNode) {
+			} else if shared.IsEqual(node.LNode.RNode, node.RNode.RNode) {
 				op := shared.Node{
 					OperationType: node.OperationType,
 					Value:         0.0,
 					Variable:      "",
-					LNode:         clone(node.LNode.LNode),
-					RNode:         clone(node.RNode.LNode),
+					LNode:         shared.Clone(node.LNode.LNode),
+					RNode:         shared.Clone(node.RNode.LNode),
 					Associative:   nil,
 				}
 				return &shared.Node{
@@ -822,13 +821,13 @@ func simplifyMultFact(node *shared.Node) (*shared.Node, bool, error) {
 func simplifyDivFact(node *shared.Node) (*shared.Node, bool, error) {
 	if node.OperationType == shared.PLUS || node.OperationType == shared.MINUS {
 		if node.LNode.OperationType == shared.DIVIDE && node.RNode.OperationType == shared.DIVIDE {
-			if isEqual(node.LNode.LNode, node.RNode.LNode) {
+			if shared.IsEqual(node.LNode.LNode, node.RNode.LNode) {
 				op := shared.Node{
 					OperationType: node.OperationType,
 					Value:         0.0,
 					Variable:      "",
-					LNode:         clone(node.LNode.RNode),
-					RNode:         clone(node.RNode.RNode),
+					LNode:         shared.Clone(node.LNode.RNode),
+					RNode:         shared.Clone(node.RNode.RNode),
 					Associative:   nil,
 				}
 				return &shared.Node{
@@ -840,13 +839,13 @@ func simplifyDivFact(node *shared.Node) (*shared.Node, bool, error) {
 					Associative:   nil,
 				}, true, nil
 
-			} else if isEqual(node.LNode.RNode, node.RNode.RNode) {
+			} else if shared.IsEqual(node.LNode.RNode, node.RNode.RNode) {
 				op := shared.Node{
 					OperationType: node.OperationType,
 					Value:         0.0,
 					Variable:      "",
-					LNode:         clone(node.LNode.LNode),
-					RNode:         clone(node.RNode.LNode),
+					LNode:         shared.Clone(node.LNode.LNode),
+					RNode:         shared.Clone(node.RNode.LNode),
 					Associative:   nil,
 				}
 				return &shared.Node{

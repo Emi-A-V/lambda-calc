@@ -3,7 +3,6 @@ package lexer
 import (
 	"errors"
 	"lambdacalc/shared"
-	"lambdacalc/utils"
 	"strconv"
 	"unicode"
 
@@ -147,7 +146,11 @@ func LexTokens(input string) ([]shared.Token, error) {
 						if shared.Conf.Options["show_debug_process"] {
 							if val, ok := shared.Variables[string(str[j])]; ok {
 								cfmt.Printf("{{Notice:}}::blue|bold found defined variable %s with value: ", string(str[j]))
-								cfmt.Printf("%s", utils.PrintATree(&val))
+								cfmt.Printf("%s", shared.PrintATree(&val))
+								cfmt.Printf(".\n")
+							} else if val, ok := shared.Functions[string(str[j])]; ok {
+								cfmt.Printf("{{Notice:}}::blue|bold found defined variable %s with value: ", string(str[j]))
+								cfmt.Printf("%s", shared.PrintATree(val.Equation))
 								cfmt.Printf(".\n")
 							} else {
 								cfmt.Printf("{{Notice:}}::blue|bold found undefined variable %s.\n", string(str[j]))

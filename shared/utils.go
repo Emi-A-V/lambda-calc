@@ -1,22 +1,87 @@
-package utils
+package shared
 
 import (
-	"lambdacalc/shared"
 	"strconv"
 )
 
-func PrintATree(node *shared.Node) string {
+func IsEqual(a, b *Node) bool {
+	if a.OperationType != b.OperationType {
+		return false
+	} else if a.OperationType == NUMBER {
+		return a.Value == b.Value
+	} else if a.OperationType == DIVIDE {
+		return IsEqual(a.LNode, b.LNode) && IsEqual(a.RNode, b.RNode)
+	} else if a.OperationType == VARIABLE {
+		return a.Variable == b.Variable
+	} else if a.OperationType == MULTIPLY || a.OperationType == PLUS {
+		return containSameNodes(a.Associative, b.Associative)
+	}
+	return true
+}
+
+// Frequenzy Comparision of Node arrays.
+// TODO: Pointers might not be the same for two of the same items...
+func containSameNodes(a []*Node, b []*Node) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	used := make(map[*Node]bool)
+
+	for _, x := range a {
+		contains := false
+		for _, y := range b {
+
+			// Skip if already used
+			if _, ok := used[y]; ok {
+				continue
+			}
+
+			// Check if equal
+			if IsEqual(x, y) {
+				contains = true
+				used[y] = true
+				break
+			}
+		}
+		if !contains {
+			return false
+		}
+	}
+	return true
+}
+
+// TODO: WTF this is wrong!
+func Clone(n *Node) *Node {
+	if n == nil {
+		return nil
+	}
+
+	copy := *n
+
+	copy.LNode = Clone(n.LNode)
+	copy.RNode = Clone(n.RNode)
+
+	copy.Associative = []*Node{}
+	for _, val := range n.Associative {
+		copy.Associative = append(copy.Associative, Clone(val))
+	}
+
+	return &copy
+}
+
+func PrintATree(node *Node) string {
 	str := ""
 	switch node.OperationType {
-	case shared.NUMBER:
+	case NUMBER:
 		str += strconv.FormatFloat(node.Value, 'f', -1, 64)
-	case shared.VARIABLE:
-		if val, ok := shared.Variables[node.Variable]; ok {
+	case VARIABLE:
+		if val, ok := Variables[node.Variable]; ok {
 			str += PrintATree(&val)
 		} else {
 			str += node.Variable
 		}
-	case shared.PLUS:
+	case PLUS:
 		str += "("
 		for i, val := range node.Associative {
 			str += PrintATree(val)
@@ -25,13 +90,13 @@ func PrintATree(node *shared.Node) string {
 			}
 		}
 		str += ")"
-	case shared.MINUS:
+	case MINUS:
 		str += "("
 		str += PrintATree(node.LNode)
 		str += "-"
 		str += PrintATree(node.RNode)
 		str += ")"
-	case shared.MULTIPLY:
+	case MULTIPLY:
 		str += "("
 		for i, val := range node.Associative {
 			str += PrintATree(val)
@@ -40,27 +105,27 @@ func PrintATree(node *shared.Node) string {
 			}
 		}
 		str += ")"
-	case shared.DIVIDE:
+	case DIVIDE:
 		str += "("
 		str += PrintATree(node.LNode)
 		str += "/"
 		str += PrintATree(node.RNode)
 		str += ")"
-	case shared.POWER:
+	case POWER:
 		str += "("
 		str += PrintATree(node.LNode)
 		str += "^"
 		str += PrintATree(node.RNode)
 		str += ")"
-	case shared.SQRT:
+	case SQRT:
 		str += "("
 		str += PrintATree(node.LNode)
 		str += "sq"
 		str += PrintATree(node.RNode)
 		str += ")"
-	case shared.COMMA:
+	case COMMA:
 		str += ","
-	case shared.FUNCTION:
+	case FUNCTION:
 		str += node.Variable
 		str += "("
 		for i, val := range node.Associative {
@@ -74,56 +139,56 @@ func PrintATree(node *shared.Node) string {
 	return str
 }
 
-func PrintTree(node *shared.Node) string {
+func PrintTree(node *Node) string {
 	str := ""
 	switch node.OperationType {
-	case shared.NUMBER:
+	case NUMBER:
 		str += strconv.FormatFloat(node.Value, 'f', -1, 64)
-	case shared.VARIABLE:
-		if val, ok := shared.Variables[node.Variable]; ok {
+	case VARIABLE:
+		if val, ok := Variables[node.Variable]; ok {
 			str += PrintTree(&val)
 		} else {
 			str += node.Variable
 		}
-	case shared.PLUS:
+	case PLUS:
 		str += "("
 		str += PrintTree(node.LNode)
 		str += "+"
 		str += PrintTree(node.RNode)
 		str += ")"
-	case shared.MINUS:
+	case MINUS:
 		str += "("
 		str += PrintTree(node.LNode)
 		str += "-"
 		str += PrintTree(node.RNode)
 		str += ")"
-	case shared.MULTIPLY:
+	case MULTIPLY:
 		str += "("
 		str += PrintTree(node.LNode)
 		str += "*"
 		str += PrintTree(node.RNode)
 		str += ")"
-	case shared.DIVIDE:
+	case DIVIDE:
 		str += "("
 		str += PrintTree(node.LNode)
 		str += "/"
 		str += PrintTree(node.RNode)
 		str += ")"
-	case shared.POWER:
+	case POWER:
 		str += "("
 		str += PrintTree(node.LNode)
 		str += "^"
 		str += PrintTree(node.RNode)
 		str += ")"
-	case shared.SQRT:
+	case SQRT:
 		str += "("
 		str += PrintTree(node.LNode)
 		str += "sq"
 		str += PrintTree(node.RNode)
 		str += ")"
-	case shared.COMMA:
+	case COMMA:
 		str += ","
-	case shared.FUNCTION:
+	case FUNCTION:
 		str += node.Variable
 		str += "("
 		for i, val := range node.Associative {

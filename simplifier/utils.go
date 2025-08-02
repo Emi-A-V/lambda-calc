@@ -2,7 +2,6 @@ package simplifier
 
 import (
 	"lambdacalc/shared"
-	"lambdacalc/utils"
 
 	"github.com/i582/cfmt/cmd/cfmt"
 )
@@ -15,22 +14,7 @@ func isNumber(n *shared.Node) bool {
 	return n.OperationType == shared.NUMBER
 }
 
-func isEqual(a, b *shared.Node) bool {
-	if a.OperationType != b.OperationType {
-		return false
-	} else if a.OperationType == shared.NUMBER {
-		return a.Value == b.Value
-	} else if a.OperationType == shared.DIVIDE {
-		return isEqual(a.LNode, b.LNode) && isEqual(a.RNode, b.RNode)
-	} else if a.OperationType == shared.VARIABLE {
-		return a.Variable == b.Variable
-	} else if a.OperationType == shared.MULTIPLY || a.OperationType == shared.PLUS {
-		return containSameNodes(a.Associative, b.Associative)
-	}
-	return true
-}
-
-// Similar to isEqual, but it returns true if a and b are factors of each other
+// Similar to shared.IsEqual, but it returns true if a and b are factors of each other
 // 1, 2 -> true, 2
 // a, 2a -> true, 2
 // a, a -> true, 1
@@ -96,7 +80,7 @@ func getMultiple(a, b *shared.Node) (bool, float64) {
 
 				// If we have not seen the value already and it is equal to aVal.
 				if alreadySeenB[bVal] < 1 {
-					if isEqual(aVal, bVal) {
+					if shared.IsEqual(aVal, bVal) {
 						// Add it to already seen so it is not checked again later.
 						alreadySeenB[bVal]++
 						found = true
@@ -192,18 +176,6 @@ func getNumFactor(node *shared.Node) (bool, *shared.Node, *shared.Node) {
 	return false, nil, nil
 }
 
-func clone(n *shared.Node) *shared.Node {
-	if n == nil {
-		return nil
-	}
-
-	copy := *n
-	copy.LNode = clone(n.LNode)
-	copy.RNode = clone(n.RNode)
-
-	return &copy
-}
-
 func removeFromNodeArray(a []*shared.Node, i int) []*shared.Node {
 	appended := []*shared.Node{}
 
@@ -215,38 +187,6 @@ func removeFromNodeArray(a []*shared.Node, i int) []*shared.Node {
 		}
 	}
 	return appended
-}
-
-// Frequenzy Comparision of shared.Node arrays.
-// TODO: Pointers might not be the same for two of the same items...
-func containSameNodes(a []*shared.Node, b []*shared.Node) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	used := make(map[*shared.Node]bool)
-
-	for _, x := range a {
-		contains := false
-		for _, y := range b {
-
-			// Skip if already used
-			if _, ok := used[y]; ok {
-				continue
-			}
-
-			// Check if equal
-			if isEqual(x, y) {
-				contains = true
-				used[y] = true
-				break
-			}
-		}
-		if !contains {
-			return false
-		}
-	}
-	return true
 }
 
 // Checks if a node is either shared.PLUS or shared.MULTIPLY (Cascadable Operation)
@@ -266,21 +206,21 @@ func multiplyNodes(x *shared.Node, y *shared.Node) *shared.Node {
 
 	if shared.Conf.Options["show_debug_process"] {
 		cfmt.Printf("(Simplifier - 275:6 - multiplyNodes) {{Debug:}}::cyan|bold Multiplying ")
-		cfmt.Printf("%s", utils.PrintATree(x))
+		cfmt.Printf("%s", shared.PrintATree(x))
 		cfmt.Printf(" and ")
-		cfmt.Printf("%s", utils.PrintATree(y))
+		cfmt.Printf("%s", shared.PrintATree(y))
 		cfmt.Printf(" to ")
 	}
 
 	if x.OperationType == shared.NUMBER && x.Value == 1 {
 		if shared.Conf.Options["show_debug_process"] {
-			cfmt.Printf("%s", utils.PrintATree(y))
+			cfmt.Printf("%s", shared.PrintATree(y))
 			cfmt.Printf("\n")
 		}
 		return y
 	} else if y.OperationType == shared.NUMBER && y.Value == 1 {
 		if shared.Conf.Options["show_debug_process"] {
-			cfmt.Printf("%s", utils.PrintATree(x))
+			cfmt.Printf("%s", shared.PrintATree(x))
 			cfmt.Printf("\n")
 		}
 		return x
@@ -341,13 +281,13 @@ func multiplyNodes(x *shared.Node, y *shared.Node) *shared.Node {
 
 	} else if x.OperationType == shared.PLUS && y.OperationType == shared.MULTIPLY {
 		for _, val := range x.Associative {
-			a := clone(y)
+			a := shared.Clone(y)
 			a.Associative = append(a.Associative, val)
 			res.Associative = append(res.Associative, a)
 		}
 	} else if x.OperationType == shared.MULTIPLY && y.OperationType == shared.PLUS {
 		for _, val := range y.Associative {
-			a := clone(x)
+			a := shared.Clone(x)
 			a.Associative = append(a.Associative, val)
 			res.Associative = append(res.Associative, a)
 		}
@@ -367,7 +307,7 @@ func multiplyNodes(x *shared.Node, y *shared.Node) *shared.Node {
 		}
 	}
 	if shared.Conf.Options["show_debug_process"] {
-		cfmt.Printf("%s", utils.PrintATree(res))
+		cfmt.Printf("%s", shared.PrintATree(res))
 		cfmt.Printf("\n")
 	}
 	return res

@@ -11,21 +11,12 @@ import (
 
 func AssociativeTreeRebuild(node *shared.Node) *shared.Node {
 	switch node.OperationType {
-	case shared.NUMBER, shared.VARIABLE:
+	case shared.NUMBER:
+		return node
+	case shared.VARIABLE:
 		return node
 	case shared.FUNCTION:
-		result := []*shared.Node{}
-		for _, val := range node.Associative {
-			result = append(result, AssociativeTreeRebuild(val))
-		}
-		return &shared.Node{
-			OperationType: shared.FUNCTION,
-			Value:         0.0,
-			Variable:      node.Variable,
-			LNode:         nil,
-			RNode:         nil,
-			Associative:   result,
-		}
+		return node
 	case shared.MINUS, shared.PLUS, shared.MULTIPLY, shared.DIVIDE:
 		var result []*shared.Node
 		var walk func(n *shared.Node)

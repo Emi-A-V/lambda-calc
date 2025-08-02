@@ -136,23 +136,57 @@ func (p *parser) term() (shared.Node, error) {
 			}
 
 		case shared.VARIABLE:
-			c := result
-			result = shared.Node{
-				OperationType: shared.MULTIPLY,
-				Value:         0.0,
-				Variable:      "",
-				LNode:         &c,
-				RNode: &shared.Node{
-					OperationType: shared.VARIABLE,
+			varName := p.tokens[p.currentIndex].Variable
+			p.currentIndex++
+			if p.tokens[p.currentIndex].TokenType != shared.LPARENTHESES {
+				p.currentIndex++
+				// Get expression inside the root
+				prmt, err := p.parameter()
+				if err != nil {
+					return shared.Node{}, err
+				}
+
+				// Check for closing parentheses
+				if p.currentIndex >= len(p.tokens) || p.tokens[p.currentIndex].TokenType != shared.RPARENTHESES {
+					cfmt.Println("{{Error:}}::red|bold unable to parse tokens, missing closing parentheses")
+					return shared.Node{}, errors.New("unclosed parentheses")
+				}
+
+				p.currentIndex += 1
+				c := result
+				result = shared.Node{
+					OperationType: shared.MULTIPLY,
 					Value:         0.0,
-					Variable:      p.tokens[p.currentIndex].Variable,
-					LNode:         nil,
-					RNode:         nil,
-					Associative:   nil,
-				},
-				Associative: nil,
+					Variable:      "",
+					LNode:         &c,
+					RNode: &shared.Node{
+						OperationType: shared.FUNCTION,
+						Value:         0.0,
+						Variable:      varName,
+						LNode:         nil,
+						RNode:         nil,
+						Associative:   prmt,
+					},
+					Associative: nil,
+				}
+			} else {
+				c := result
+				result = shared.Node{
+					OperationType: shared.MULTIPLY,
+					Value:         0.0,
+					Variable:      "",
+					LNode:         &c,
+					RNode: &shared.Node{
+						OperationType: shared.VARIABLE,
+						Value:         0.0,
+						Variable:      varName,
+						LNode:         nil,
+						RNode:         nil,
+						Associative:   nil,
+					},
+					Associative: nil,
+				}
 			}
-			p.currentIndex += 1
 		default:
 			return result, nil
 		}
