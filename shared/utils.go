@@ -2,7 +2,20 @@ package shared
 
 import (
 	"strconv"
+
+	"github.com/i582/cfmt/cmd/cfmt"
 )
+
+func ZeroNode() *Node {
+	return &Node{
+		OperationType: NUMBER,
+		Value:         0.0,
+		Variable:      "",
+		LNode:         nil,
+		RNode:         nil,
+		Associative:   nil,
+	}
+}
 
 func IsEqual(a, b *Node) bool {
 	if a.OperationType != b.OperationType {
@@ -71,6 +84,11 @@ func Clone(n *Node) *Node {
 }
 
 func PrintATree(node *Node) string {
+	if node == nil {
+		cfmt.Printf("Encountered unexpected null pointer reference.\n")
+		return ""
+	}
+
 	str := ""
 	switch node.OperationType {
 	case NUMBER:
