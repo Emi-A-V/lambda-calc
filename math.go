@@ -8,7 +8,6 @@ import (
 	"lambdacalc/parser"
 	"lambdacalc/simplifier"
 	"lambdacalc/solver"
-	"lambdacalc/treerebuilder"
 
 	"errors"
 	"strconv"
@@ -44,7 +43,7 @@ func read(cmd string) (string, error) {
 			return "", errors.New("incomplete define statement")
 		}
 
-		parsed, err := parser.Parse(lexed)
+		parsed, err := parser.SearchParse(lexed, parser.ASSERTION)
 		if err != nil {
 			return "", err
 		}
@@ -58,8 +57,8 @@ func read(cmd string) (string, error) {
 				}
 			}
 		}
-		atr := treerebuilder.AssociativeTreeRebuild(&parsed)
-		simplified, err := simplifier.Simplify(atr, simplifier.UNWIND)
+		// atr := treerebuilder.AssociativeTreeRebuild(&parsed)
+		simplified, err := simplifier.Simplify(parsed, simplifier.UNWIND)
 		if err != nil {
 			return "", err
 		}
@@ -108,7 +107,7 @@ func read(cmd string) (string, error) {
 			return "", err
 		}
 
-		solver.Solve(&parsed)
+		solver.Solve(parsed)
 
 		return "", nil
 	case "list":
@@ -120,7 +119,7 @@ func read(cmd string) (string, error) {
 		for key, val := range shared.Variables {
 			cfmt.Println("")
 			cfmt.Printf("'%s' : ", key)
-			shared.PrintTree(&val)
+			shared.PrintATree(&val)
 		}
 		cfmt.Println("")
 		return "", nil
@@ -150,19 +149,11 @@ func calc(cmd string) (float64, error) {
 	// Debug
 	if shared.Conf.Options["show_debug_process"] {
 		cfmt.Printf("{{Debug:}}::cyan|bold parse result: ")
-		shared.PrintTree(&parsed)
+		cfmt.Printf(shared.PrintATree(parsed))
 		cfmt.Println("")
 	}
 
-	atred := treerebuilder.AssociativeTreeRebuild(&parsed)
-	// Debug
-	if shared.Conf.Options["show_debug_process"] {
-		cfmt.Printf("{{Debug:}}::cyan|bold atr result: ")
-		cfmt.Printf("%s", shared.PrintATree(atred))
-		cfmt.Println("")
-	}
-
-	unwound, err := simplifier.Simplify(atred, simplifier.UNWIND)
+	unwound, err := simplifier.Simplify(parsed, simplifier.UNWIND)
 	if err != nil {
 		return 0, err
 	}
