@@ -63,23 +63,23 @@ func (p *parser) topLevelStructures(mode int) (*shared.Node, error) {
 		// Get A part.
 		a, err := p.expression()
 		if err != nil {
-			cfmt.Printf("{{Error:}}::red|bold Unable to parse assertion, fault assertion variable.")
+			cfmt.Printf("{{Error:}}::red|bold Unable to parse assertion, fault assertion variable.\n")
 			return nil, errors.New("faulty assertion front")
 		}
 
 		// Check if equal sign is there, then skip it.
 		if p.currentToken.TokenType != shared.EQUAL {
-			cfmt.Printf("{{Error:}}::red|bold Unable to parse assertion, mssing assertion symbol.")
+			cfmt.Printf("{{Error:}}::red|bold Unable to parse assertion, mssing assertion symbol.\n")
 			return nil, errors.New("expecting euqal symbol")
 		} else if !p.advance() {
-			cfmt.Printf("{{Error:}}::red|bold Unable to parse assertion, mssing assertion statement.")
+			cfmt.Printf("{{Error:}}::red|bold Unable to parse assertion, mssing assertion statement.\n")
 			return nil, errors.New("missing assertion statement")
 		}
 
 		// Get B part.
 		b, err := p.expression()
 		if err != nil {
-			cfmt.Printf("{{Error:}}::red|bold Unable to parse assertion, fault assertion equation.")
+			cfmt.Printf("{{Error:}}::red|bold Unable to parse assertion, fault assertion equation.\n")
 			return nil, errors.New("faulty assertion end")
 		}
 
@@ -116,21 +116,14 @@ func (p *parser) expression() (*shared.Node, error) {
 		}
 
 		if operand == shared.MINUS {
-			newFactor = &shared.Node{
-				OperationType: shared.MINUS,
-				Value:         0,
+			newFactor = addMultiplication(newFactor, &shared.Node{
+				OperationType: shared.NUMBER,
+				Value:         -1,
 				Variable:      "",
-				LNode: &shared.Node{
-					OperationType: shared.NUMBER,
-					Value:         0.0,
-					Variable:      "",
-					LNode:         nil,
-					RNode:         nil,
-					Associative:   nil,
-				},
-				RNode:       newFactor,
-				Associative: nil,
-			}
+				LNode:         nil,
+				RNode:         nil,
+				Associative:   nil,
+			})
 		}
 		addends = append(addends, newFactor)
 
@@ -302,8 +295,9 @@ func (p *parser) literal() (*shared.Node, error) {
 					return nil, err
 				}
 
-				if p.currentToken.TokenType == shared.RPARENTHESES {
-
+				if p.currentToken.TokenType != shared.RPARENTHESES {
+					cfmt.Printf("{{Error:}}::bold|red unable to parse tokens, expecting closing parenthesis for function statement.")
+					return nil, errors.New("unclosed function parenthesis")
 				}
 
 				// Check if the number of parameters matches a defined function.
@@ -315,6 +309,7 @@ func (p *parser) literal() (*shared.Node, error) {
 					}
 				}
 
+				p.advance()
 				return &shared.Node{
 					OperationType: shared.FUNCTION,
 					Value:         0.0,
@@ -356,8 +351,32 @@ func (p *parser) literal() (*shared.Node, error) {
 			cfmt.Println("{{Error:}}::red|bold Unable to parse tokens, expecting closing parenthesis.")
 			return nil, errors.New("missing closing parenthesis")
 		}
+	case shared.PLUS:
+		if !p.advance() {
+			cfmt.Println("{{Error:}}::red|bold Unable to parse tokens, expecting another token.")
+			return nil, errors.New("missing token")
+		}
+		return p.literal()
+	case shared.MINUS:
+		if !p.advance() {
+			cfmt.Println("{{Error:}}::red|bold Unable to parse tokens, expecting another token.")
+			return nil, errors.New("missing token")
+		}
+		a, err := p.literal()
+		if err != nil {
+			return nil, err
+		}
+		node := addMultiplication(a, &shared.Node{
+			OperationType: shared.NUMBER,
+			Value:         -1,
+			Variable:      "",
+			LNode:         nil,
+			RNode:         nil,
+			Associative:   nil,
+		})
+		return node, nil
 	default:
-		cfmt.Printf("{{Error:}} Unable to parse tokens, unexpected token: %v\n", p.currentToken)
+		cfmt.Printf("{{Error:}}::red|bold Unable to parse tokens, unexpected token: %v\n", p.currentToken)
 		return nil, errors.New("unexpected token")
 	}
 }
@@ -377,4 +396,30 @@ func (p *parser) parameter() ([]*shared.Node, error) {
 		}
 	}
 	return parameters, nil
+}
+
+// Prevent from Multiplication being able to recurse.
+// Add a node to childs multiplication.
+func addMultiplication(parent *shared.Node, child *shared.Node) *shared.Node {
+	if child.OperationType == shared.MULTIPLY && parent.OperationType != shared.MULTIPLY {
+		child.Associative = append(child.Associative, parent)
+		return child
+	} else if child.OperationType != shared.MULTIPLY && parent.OperationType == shared.MULTIPLY {
+		parent.Associative = append(parent.Associative, child)
+		return parent
+	} else if child.OperationType == shared.MULTIPLY && parent.OperationType == shared.MULTIPLY {
+		child.Associative = append(child.Associative, parent.Associative...)
+		return child
+	}
+
+	// Just make a new Multiplication and return it.
+	node := &shared.Node{
+		OperationType: shared.MULTIPLY,
+		Value:         0,
+		Variable:      "",
+		LNode:         nil,
+		RNode:         nil,
+		Associative:   []*shared.Node{parent, child},
+	}
+	return node
 }
