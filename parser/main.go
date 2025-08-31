@@ -385,12 +385,12 @@ func (p *parser) num() (shared.Node, error) {
 			return shared.Node{}, err
 		}
 		return shared.Node{
-			OperationType: shared.MINUS,
+			OperationType: shared.MULTIPLY,
 			Value:         0.0,
 			Variable:      "",
 			LNode: &shared.Node{
 				OperationType: shared.NUMBER,
-				Value:         0.0,
+				Value:         -1.0,
 				Variable:      "",
 				LNode:         nil,
 				RNode:         nil,
